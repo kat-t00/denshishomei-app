@@ -575,6 +575,27 @@ body {
   flex-wrap: wrap;
 }
 
+.cloud-drive-box {
+  margin-top: 24px;
+  padding: 16px;
+  background: var(--color-card);
+  border: 2px solid var(--color-border);
+  border-radius: 14px;
+  max-width: 480px;
+}
+
+.cloud-drive-box h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.cloud-drive-status {
+  font-size: 14px;
+  font-weight: bold;
+  color: #6b7c93;
+  margin: 8px 0;
+}
+
 /* ===== 署名フロー(高齢者・タブレット操作を考慮し、通常画面より大きめのUI) ===== */
 .signing-stage {
   flex: 1 1 auto;
@@ -1048,6 +1069,12 @@ body {
           <button id="btn-export-templates" class="tool-button-small" type="button">⬇ テンプレートをバックアップ</button>
           <button id="btn-import-templates" class="tool-button-small" type="button">⬆ バックアップから復元・追加</button>
           <input type="file" id="import-templates-input" accept="application/json" class="hidden" />
+        </div>
+        <div id="cloud-drive-section" class="cloud-drive-box hidden">
+          <h3>☁️ クラウド保存（任意）</h3>
+          <p class="side-panel-hint">Googleドライブに接続すると、署名完了時に端末へのダウンロードと同時に、事業所ご自身のドライブにも自動保存されます。</p>
+          <p id="cloud-drive-status" class="cloud-drive-status">未接続</p>
+          <button id="btn-cloud-drive-toggle" class="tool-button-small" type="button">Googleドライブに接続</button>
         </div>
       </div>
     </section>
@@ -2743,6 +2770,102 @@ const ExportModule = (() => {
 
 </script>
   <script>
+// Googleドライブへの直接アップロード連携。事業所自身のGoogleアカウントを使う(BYOK思想、
+// Yuya側はデータもトークンも預からない)。Google Identity Services(GIS)のトークンフローだけを使い、
+// 重いgapi.jsは読み込まない。アクセストークンはメモリ内のみで保持し、自動保存はしない。
+//
+// OAuthの性質上、file://で開いた場合やオフライン環境では機能しない(オリジンがhttp(s)である必要がある)。
+// そのためisAvailable()で事前に使用可否を判定し、使えない環境ではUI自体を出さない設計にしてある。
+const CloudDrive = (() => {
+  const GIS_SRC = 'https://accounts.google.com/gsi/client';
+  const SCOPE = 'https://www.googleapis.com/auth/drive.file'; // このアプリが作成したファイルだけにアクセスできる、最小権限のスコープ
+
+  // 事業所ごとに個別取得するAPIキーではなく、このアプリ自体の識別子(Client ID)。
+  // Google Cloud Consoleで取得後、ここに埋める(詳細はCLAUDE.md参照)
+  const CLIENT_ID = 'YOUR_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com';
+
+  let gisLoadPromise = null;
+  let accessToken = null; // タブを閉じたら消える(再接続は都度必要)
+
+  function isAvailable() {
+    return location.protocol !== 'file:';
+  }
+
+  function isConfigured() {
+    return !CLIENT_ID.startsWith('YOUR_GOOGLE_OAUTH_CLIENT_ID');
+  }
+
+  function loadGisScript() {
+    if (gisLoadPromise) return gisLoadPromise;
+    gisLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = GIS_SRC;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Googleへの接続に失敗しました。インターネット接続をご確認ください。'));
+      document.head.appendChild(script);
+    });
+    return gisLoadPromise;
+  }
+
+  // Googleアカウントへのアクセス許可をその場で求める(ポップアップでのログイン・同意画面)
+  async function connect() {
+    if (!isConfigured()) throw new Error('Googleドライブ連携が未設定です(開発者向け設定が必要です)');
+    await loadGisScript();
+    return new Promise((resolve, reject) => {
+      const tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPE,
+        callback: (resp) => {
+          if (resp.error) { reject(new Error(resp.error)); return; }
+          accessToken = resp.access_token;
+          resolve();
+        },
+      });
+      tokenClient.requestAccessToken();
+    });
+  }
+
+  function isConnected() {
+    return !!accessToken;
+  }
+
+  function disconnect() {
+    if (accessToken && window.google) {
+      google.accounts.oauth2.revoke(accessToken, () => {});
+    }
+    accessToken = null;
+  }
+
+  // ファイルをGoogleドライブの「マイドライブ」直下にアップロードする(multipart/related形式)
+  async function uploadFile(bytes, fileName, mimeType) {
+    if (!accessToken) throw new Error('Googleドライブに接続されていません');
+    const boundary = 'keiyaku_' + Date.now();
+    const metadata = JSON.stringify({ name: fileName });
+    const head = '--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + metadata +
+      '\r\n--' + boundary + '\r\nContent-Type: ' + mimeType + '\r\n\r\n';
+    const tail = '\r\n--' + boundary + '--';
+    const body = new Blob([head, bytes, tail]);
+
+    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + accessToken,
+        'Content-Type': 'multipart/related; boundary=' + boundary,
+      },
+      body,
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      throw new Error('Googleドライブへの保存に失敗しました(' + res.status + ') ' + detail);
+    }
+    return res.json();
+  }
+
+  return { isAvailable, isConfigured, connect, isConnected, disconnect, uploadFile };
+})();
+
+</script>
+  <script>
 // 無効化・再契約フロー。署名済みPDFは自動保存していないため、
 // 無効化したい古いPDFファイルを再アップロードしてもらい、その場でハッシュを再計算して照合する
 // (元のPDFのバイト列は一切書き換えない。無効化記録は別ファイルとして出力する)。
@@ -2866,6 +2989,24 @@ const VoidFlow = (() => {
         if (dataUrl) imgEl.src = dataUrl;
       }),
     });
+  }
+
+  // クラウド保存(Googleドライブ)の接続状態をホーム画面に反映する。
+  // file://等、OAuthが原理的に使えない環境ではセクションごと隠す
+  function renderCloudDriveSection() {
+    if (!el.cloudDriveSection) return;
+    if (!CloudDrive.isAvailable()) {
+      el.cloudDriveSection.classList.add('hidden');
+      return;
+    }
+    el.cloudDriveSection.classList.remove('hidden');
+    if (CloudDrive.isConnected()) {
+      el.cloudDriveStatus.textContent = '✅ 接続済み（署名完了時に自動で保存されます）';
+      el.cloudDriveToggleBtn.textContent = '接続を解除';
+    } else {
+      el.cloudDriveStatus.textContent = '未接続';
+      el.cloudDriveToggleBtn.textContent = 'Googleドライブに接続';
+    }
   }
 
   // テンプレート一覧のサムネイル(1ページ目を縮小したもの)を作る。
@@ -3755,6 +3896,22 @@ const VoidFlow = (() => {
       alert('署名済みPDFのダウンロードは完了しています。\n' +
         'ただしテンプレート側の更新記録に失敗しました: ' + e.message);
     }
+    // クラウド保存は端末へのダウンロードが済んだ後の「追加の保存先」という位置づけ。
+    // 失敗しても手元にファイルは残っているので、契約自体は失敗扱いにしない
+    if (CloudDrive.isConnected()) {
+      try {
+        await CloudDrive.uploadFile(artifacts.pdfBytes, artifacts.fileNameBase + '.pdf', 'application/pdf');
+        await CloudDrive.uploadFile(new TextEncoder().encode(artifacts.auditJson), artifacts.fileNameBase + '_監査記録.json', 'application/json');
+        if (artifacts.audioBytes) {
+          await CloudDrive.uploadFile(artifacts.audioBytes, artifacts.fileNameBase + '_説明音声.webm', 'audio/webm');
+        }
+        showToast('Googleドライブにも保存しました');
+      } catch (e) {
+        console.error('Googleドライブへの保存に失敗しました', e);
+        alert('端末へのダウンロードは完了しています。\n' +
+          'ただしGoogleドライブへの保存に失敗しました: ' + e.message);
+      }
+    }
     signingUiState.lastFileNameBase = artifacts.fileNameBase;
     signingUiState.phase = 'done';
     renderSigningStep();
@@ -3842,6 +3999,9 @@ const VoidFlow = (() => {
     el.voidResult = q('void-result');
     el.voidResignTemplateList = q('void-resign-template-list');
     el.thumbSizeControl = q('thumb-size-control');
+    el.cloudDriveSection = q('cloud-drive-section');
+    el.cloudDriveStatus = q('cloud-drive-status');
+    el.cloudDriveToggleBtn = q('btn-cloud-drive-toggle');
 
     q('btn-nav-home').addEventListener('click', () => { showScreen('home'); renderHomeTemplateList(); });
     q('btn-nav-new-template').addEventListener('click', () => { resetTemplateEditor(); showScreen('template-editor'); });
@@ -3908,7 +4068,27 @@ const VoidFlow = (() => {
     q('void-pdf-input').addEventListener('change', () => { voidPdfFile = q('void-pdf-input').files[0]; });
     q('btn-void-confirm').addEventListener('click', handleVoidConfirm);
 
+    el.cloudDriveToggleBtn.addEventListener('click', async () => {
+      if (CloudDrive.isConnected()) {
+        CloudDrive.disconnect();
+        renderCloudDriveSection();
+        return;
+      }
+      try {
+        el.cloudDriveToggleBtn.disabled = true;
+        await CloudDrive.connect();
+        showToast('Googleドライブに接続しました');
+      } catch (e) {
+        console.error('Googleドライブへの接続に失敗しました', e);
+        alert('Googleドライブへの接続に失敗しました。\n' + e.message);
+      } finally {
+        el.cloudDriveToggleBtn.disabled = false;
+        renderCloudDriveSection();
+      }
+    });
+
     renderHomeTemplateList();
+    renderCloudDriveSection();
     showScreen('home');
 
     if (!localStorage.getItem(WELCOME_SEEN_KEY)) showWelcomeOverlay();

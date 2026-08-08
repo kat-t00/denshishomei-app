@@ -42,6 +42,12 @@
           <button id="btn-import-templates" class="tool-button-small" type="button">⬆ バックアップから復元・追加</button>
           <input type="file" id="import-templates-input" accept="application/json" class="hidden" />
         </div>
+        <div id="cloud-drive-section" class="cloud-drive-box hidden">
+          <h3>☁️ クラウド保存（任意）</h3>
+          <p class="side-panel-hint">Googleドライブに接続すると、署名完了時に端末へのダウンロードと同時に、事業所ご自身のドライブにも自動保存されます。</p>
+          <p id="cloud-drive-status" class="cloud-drive-status">未接続</p>
+          <button id="btn-cloud-drive-toggle" class="tool-button-small" type="button">Googleドライブに接続</button>
+        </div>
       </div>
     </section>
 
@@ -140,6 +146,7 @@
   <script src="pdf_writer.js"></script>
   <script src="audit.js"></script>
   <script src="export.js"></script>
+  <script src="cloud_drive.js"></script>
   <script src="void_flow.js"></script>
   <script src="app.js"></script>
 </body>

@@ -74,6 +74,24 @@
     });
   }
 
+  // クラウド保存(Googleドライブ)の接続状態をホーム画面に反映する。
+  // file://等、OAuthが原理的に使えない環境ではセクションごと隠す
+  function renderCloudDriveSection() {
+    if (!el.cloudDriveSection) return;
+    if (!CloudDrive.isAvailable()) {
+      el.cloudDriveSection.classList.add('hidden');
+      return;
+    }
+    el.cloudDriveSection.classList.remove('hidden');
+    if (CloudDrive.isConnected()) {
+      el.cloudDriveStatus.textContent = '✅ 接続済み（署名完了時に自動で保存されます）';
+      el.cloudDriveToggleBtn.textContent = '接続を解除';
+    } else {
+      el.cloudDriveStatus.textContent = '未接続';
+      el.cloudDriveToggleBtn.textContent = 'Googleドライブに接続';
+    }
+  }
+
   // テンプレート一覧のサムネイル(1ページ目を縮小したもの)を作る。
   // 一覧はPDF本体を含まない軽量データなので、表示のたびに個別取得して非同期で埋める。
   // 更新されない限り再生成しないよう、id+updatedAtをキーにキャッシュする。
@@ -961,6 +979,22 @@
       alert('署名済みPDFのダウンロードは完了しています。\n' +
         'ただしテンプレート側の更新記録に失敗しました: ' + e.message);
     }
+    // クラウド保存は端末へのダウンロードが済んだ後の「追加の保存先」という位置づけ。
+    // 失敗しても手元にファイルは残っているので、契約自体は失敗扱いにしない
+    if (CloudDrive.isConnected()) {
+      try {
+        await CloudDrive.uploadFile(artifacts.pdfBytes, artifacts.fileNameBase + '.pdf', 'application/pdf');
+        await CloudDrive.uploadFile(new TextEncoder().encode(artifacts.auditJson), artifacts.fileNameBase + '_監査記録.json', 'application/json');
+        if (artifacts.audioBytes) {
+          await CloudDrive.uploadFile(artifacts.audioBytes, artifacts.fileNameBase + '_説明音声.webm', 'audio/webm');
+        }
+        showToast('Googleドライブにも保存しました');
+      } catch (e) {
+        console.error('Googleドライブへの保存に失敗しました', e);
+        alert('端末へのダウンロードは完了しています。\n' +
+          'ただしGoogleドライブへの保存に失敗しました: ' + e.message);
+      }
+    }
     signingUiState.lastFileNameBase = artifacts.fileNameBase;
     signingUiState.phase = 'done';
     renderSigningStep();
@@ -1048,6 +1082,9 @@
     el.voidResult = q('void-result');
     el.voidResignTemplateList = q('void-resign-template-list');
     el.thumbSizeControl = q('thumb-size-control');
+    el.cloudDriveSection = q('cloud-drive-section');
+    el.cloudDriveStatus = q('cloud-drive-status');
+    el.cloudDriveToggleBtn = q('btn-cloud-drive-toggle');
 
     q('btn-nav-home').addEventListener('click', () => { showScreen('home'); renderHomeTemplateList(); });
     q('btn-nav-new-template').addEventListener('click', () => { resetTemplateEditor(); showScreen('template-editor'); });
@@ -1114,7 +1151,27 @@
     q('void-pdf-input').addEventListener('change', () => { voidPdfFile = q('void-pdf-input').files[0]; });
     q('btn-void-confirm').addEventListener('click', handleVoidConfirm);
 
+    el.cloudDriveToggleBtn.addEventListener('click', async () => {
+      if (CloudDrive.isConnected()) {
+        CloudDrive.disconnect();
+        renderCloudDriveSection();
+        return;
+      }
+      try {
+        el.cloudDriveToggleBtn.disabled = true;
+        await CloudDrive.connect();
+        showToast('Googleドライブに接続しました');
+      } catch (e) {
+        console.error('Googleドライブへの接続に失敗しました', e);
+        alert('Googleドライブへの接続に失敗しました。\n' + e.message);
+      } finally {
+        el.cloudDriveToggleBtn.disabled = false;
+        renderCloudDriveSection();
+      }
+    });
+
     renderHomeTemplateList();
+    renderCloudDriveSection();
     showScreen('home');
 
     if (!localStorage.getItem(WELCOME_SEEN_KEY)) showWelcomeOverlay();

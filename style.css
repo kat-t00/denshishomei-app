@@ -568,6 +568,27 @@ body {
   flex-wrap: wrap;
 }
 
+.cloud-drive-box {
+  margin-top: 24px;
+  padding: 16px;
+  background: var(--color-card);
+  border: 2px solid var(--color-border);
+  border-radius: 14px;
+  max-width: 480px;
+}
+
+.cloud-drive-box h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.cloud-drive-status {
+  font-size: 14px;
+  font-weight: bold;
+  color: #6b7c93;
+  margin: 8px 0;
+}
+
 /* ===== 署名フロー(高齢者・タブレット操作を考慮し、通常画面より大きめのUI) ===== */
 .signing-stage {
   flex: 1 1 auto;

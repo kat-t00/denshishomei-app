@@ -36,6 +36,7 @@ JS_FILES = [
     "pdf_writer.js",
     "audit.js",
     "export.js",
+    "cloud_drive.js",
     "void_flow.js",
     "app.js",
 ]
