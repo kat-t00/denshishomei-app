@@ -1,0 +1,94 @@
+// 手書き署名をcanvasに描かせるための部品。指・Apple Pencil・タッチペンいずれでも
+// 同じ動作になるようPointer Eventsを使う。高齢者が誤ってワンタップしただけで
+// 署名成立にならないよう、最小ストローク量のチェックを持つ。
+const SignaturePad = (() => {
+  const MIN_PATH_LENGTH = 40; // px。これ未満なら「署名として小さすぎる」扱い
+  const MIN_BOUNDS_SIZE = 15; // px。幅・高さともこれ未満なら不十分とみなす
+
+  function create(canvasEl, onStrokeChange) {
+    const ctx = canvasEl.getContext('2d');
+    let drawing = false;
+    let lastX = 0, lastY = 0;
+    let pathLength = 0;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let hasStroke = false;
+
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#2f3b52';
+
+    function updateBounds(x, y) {
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+    }
+
+    function getPos(evt) {
+      const rect = canvasEl.getBoundingClientRect();
+      return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+    }
+
+    canvasEl.addEventListener('pointerdown', (evt) => {
+      drawing = true;
+      hasStroke = true;
+      canvasEl.setPointerCapture(evt.pointerId);
+      const pos = getPos(evt);
+      lastX = pos.x; lastY = pos.y;
+      updateBounds(pos.x, pos.y);
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y);
+      // ワンタップだけでも点が見えるよう小さい円を描いておく(直後にmoveがあれば線で上書きされる)
+      ctx.arc(pos.x, pos.y, ctx.lineWidth / 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y);
+    });
+
+    canvasEl.addEventListener('pointermove', (evt) => {
+      if (!drawing) return;
+      const pos = getPos(evt);
+      const dx = pos.x - lastX, dy = pos.y - lastY;
+      pathLength += Math.sqrt(dx * dx + dy * dy);
+      updateBounds(pos.x, pos.y);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+      lastX = pos.x; lastY = pos.y;
+      if (onStrokeChange) onStrokeChange(isValid());
+    });
+
+    function endStroke(evt) {
+      if (!drawing) return;
+      drawing = false;
+      if (evt && canvasEl.hasPointerCapture(evt.pointerId)) {
+        canvasEl.releasePointerCapture(evt.pointerId);
+      }
+      if (onStrokeChange) onStrokeChange(isValid());
+    }
+    canvasEl.addEventListener('pointerup', endStroke);
+    canvasEl.addEventListener('pointercancel', endStroke);
+
+    function isValid() {
+      if (!hasStroke) return false;
+      const width = maxX - minX;
+      const height = maxY - minY;
+      return pathLength >= MIN_PATH_LENGTH && width >= MIN_BOUNDS_SIZE && height >= MIN_BOUNDS_SIZE;
+    }
+
+    function clear() {
+      ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+      drawing = false;
+      hasStroke = false;
+      pathLength = 0;
+      minX = Infinity; minY = Infinity; maxX = -Infinity; maxY = -Infinity;
+      if (onStrokeChange) onStrokeChange(false);
+    }
+
+    function toDataUrl() {
+      return canvasEl.toDataURL('image/png');
+    }
+
+    return { clear, isValid, toDataUrl };
+  }
+
+  return { create };
+})();

@@ -1,0 +1,1005 @@
+/* ポップで視認性の良いデザイン（丸ゴシック・パステル・角丸）。
+   madori_app/genogram_web/shinsei_form_appと同じデザイン言語(配色トークン・角丸ボタン等)を
+   踏襲しつつ、他アプリと被らないインディゴ×ゴールドの配色にしている。
+   署名フロー画面は高齢者・タブレット操作を考慮し、ボタンや文字を他画面より大きめにする。 */
+
+:root {
+  --color-bg: #f4f4fb;
+  --color-header-start: #7c83fd;
+  --color-header-end: #4b5cc4;
+  --color-primary: #5563d1;
+  --color-primary-dark: #3c47a8;
+  --color-secondary: #e8a33d;
+  --color-secondary-dark: #c8862a;
+  --color-danger: #e0575a;
+  --color-card: #ffffff;
+  --color-border: #dcdcf2;
+  --color-text: #2f3b52;
+  --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, "Hiragino Maru Gothic ProN", "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.app-header {
+  background: linear-gradient(135deg, var(--color-header-start), var(--color-header-end));
+  padding: 8px 16px;
+  box-shadow: var(--shadow-soft);
+  flex: 0 0 auto;
+}
+
+.app-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 16px;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
+.app-credit {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: bold;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  padding: 5px 12px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.app-credit:hover {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.app-credit svg {
+  fill: currentColor;
+}
+
+.tool-button {
+  border: none;
+  border-radius: 999px;
+  padding: 5px 11px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--color-primary-dark);
+  font-weight: bold;
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tool-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+}
+
+.tool-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.tool-button-primary {
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.tool-button-small {
+  border: none;
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: #eceafb;
+  color: var(--color-primary-dark);
+  font-weight: bold;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.tool-button-small:hover {
+  background: #dcd9f6;
+}
+
+.tool-button-danger {
+  color: #c0392b;
+}
+
+.app-body {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+  position: relative;
+}
+
+.app-screen {
+  display: none;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+
+.app-screen.is-active {
+  display: flex;
+}
+
+.screen-inner {
+  padding: 20px;
+  max-width: 720px;
+  margin: 0 auto;
+  width: 100%;
+  overflow-y: auto;
+}
+
+.screen-hint {
+  font-size: 13px;
+  color: #6b7c93;
+  line-height: 1.6;
+}
+
+/* ===== テンプレート編集画面 ===== */
+.editor-layout {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+  width: 100%;
+}
+
+.side-panel {
+  width: 300px;
+  flex: 0 0 auto;
+  background: var(--color-card);
+  border-right: 2px solid var(--color-border);
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.side-panel h2 {
+  font-size: 14px;
+  margin: 18px 0 8px;
+  color: var(--color-primary-dark);
+}
+
+.side-panel h2:first-child {
+  margin-top: 0;
+}
+
+.side-panel-hint {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #6b7c93;
+  line-height: 1.5;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--color-text);
+}
+
+.field-label input,
+.field-label select,
+.modal-box input {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border: 2px solid var(--color-border);
+  border-radius: 10px;
+  font-size: 13px;
+  font-family: inherit;
+  background: #fdfdff;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.checkbox-row input {
+  width: auto;
+  margin: 0;
+}
+
+.backup-select-list {
+  max-height: 40vh;
+  overflow-y: auto;
+  border: 2px solid var(--color-border);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.fixture-palette {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.palette-button {
+  border: 2px solid var(--color-border);
+  border-radius: 12px;
+  padding: 8px 6px;
+  background: #fdfdff;
+  color: var(--color-text);
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.palette-button:hover {
+  border-color: var(--color-primary);
+  background: #eceafb;
+}
+
+.palette-button.is-armed {
+  background: var(--color-primary);
+  color: #ffffff;
+  border-color: var(--color-primary-dark);
+}
+
+.canvas-area {
+  flex: 1 1 auto;
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  background: #e9e9f5;
+}
+
+.canvas-overlay-toolbars {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 16px;
+  display: flex;
+  justify-content: center;
+  z-index: 10;
+}
+
+.canvas-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  padding: 4px 10px;
+  box-shadow: var(--shadow-soft);
+}
+
+.zoom-control {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  padding: 4px 6px;
+  box-shadow: var(--shadow-soft);
+}
+
+.zoom-btn {
+  border: none;
+  border-radius: 999px;
+  width: 24px;
+  height: 24px;
+  background: var(--color-card);
+  color: var(--color-primary-dark);
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.zoom-percent {
+  color: var(--color-text);
+  font-size: 12px;
+  font-weight: bold;
+  min-width: 38px;
+  text-align: center;
+}
+
+.pdf-stage-wrap {
+  position: absolute;
+  inset: 0;
+  padding: 60px 16px 16px;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+}
+
+.pdf-stage {
+  position: relative;
+  flex: 0 0 auto;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+#pdf-canvas {
+  display: block;
+  background: #ffffff;
+}
+
+.field-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  touch-action: none;
+}
+
+.field-box {
+  position: absolute;
+  border: 2px solid var(--color-primary);
+  background: rgba(85, 99, 209, 0.12);
+  border-radius: 4px;
+  touch-action: none;
+  cursor: move;
+}
+
+/* 役割ごとに枠色を変える(本人=既定のインディゴ、家族=ゴールド、どちらでも=グレー)。
+   誰の項目か一目で分かるようにして、役割の設定ミス・連動漏れに気づきやすくする */
+.field-box.field-role-family {
+  border-color: #2f9e83;
+  background: rgba(47, 158, 131, 0.14);
+}
+
+.field-box.field-role-either {
+  border-color: #8d95a8;
+  background: rgba(141, 149, 168, 0.14);
+}
+
+.field-box.is-selected {
+  border-color: var(--color-secondary-dark);
+  background: rgba(232, 163, 61, 0.18);
+}
+
+.field-box-preview {
+  border: 2px dashed var(--color-primary);
+  background: rgba(85, 99, 209, 0.08);
+  position: absolute;
+  pointer-events: none;
+}
+
+.field-box-label {
+  position: absolute;
+  top: -18px;
+  left: 0;
+  font-size: 10px;
+  font-weight: bold;
+  color: var(--color-primary-dark);
+  background: #ffffff;
+  padding: 0 4px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.field-resize-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--color-primary);
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+}
+
+.field-resize-nw { top: -6px; left: -6px; cursor: nwse-resize; }
+.field-resize-ne { top: -6px; right: -6px; cursor: nesw-resize; }
+.field-resize-sw { bottom: -6px; left: -6px; cursor: nesw-resize; }
+.field-resize-se { bottom: -6px; right: -6px; cursor: nwse-resize; }
+
+.edit-popup {
+  display: none;
+  background: #fdfdff;
+  border: 2px solid var(--color-border);
+  border-radius: 14px;
+  padding: 12px;
+  margin-top: 8px;
+}
+
+.edit-popup.is-open {
+  display: block;
+}
+
+.edit-popup h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--color-primary-dark);
+}
+
+.popup-delete-button {
+  width: 100%;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 4px;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 8px;
+  background: #ffe3e0;
+  color: #c0392b;
+}
+
+/* ===== テンプレート一覧(サムネイル主体のカードグリッド) ===== */
+.case-list-empty {
+  font-size: 13px;
+  color: #6b7c93;
+}
+
+.thumb-size-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.thumb-size-label {
+  font-size: 12px;
+  color: #6b7c93;
+  margin-right: 4px;
+}
+
+.thumb-size-btn {
+  border: none;
+  border-radius: 999px;
+  padding: 4px 14px;
+  background: #eceafb;
+  color: var(--color-primary-dark);
+  font-weight: bold;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.thumb-size-btn:hover {
+  background: #dcd9f6;
+}
+
+.thumb-size-btn.is-active {
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--card-min-width, 150px), 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.template-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 2px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-card);
+}
+
+.template-card-thumb {
+  width: 100%;
+  aspect-ratio: 210 / 297;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: #f4f5fa;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.template-card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.template-card-thumb img[src] {
+  opacity: 1;
+}
+
+.template-card-name {
+  font-size: 13px;
+  font-weight: bold;
+  line-height: 1.3;
+}
+
+.template-card-meta {
+  font-size: 11px;
+  color: #6b7c93;
+}
+
+.template-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: auto;
+}
+
+.template-card-actions .tool-button-small {
+  width: 100%;
+  white-space: normal;
+  line-height: 1.3;
+}
+
+.backup-actions {
+  margin-top: 20px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ===== 署名フロー(高齢者・タブレット操作を考慮し、通常画面より大きめのUI) ===== */
+.signing-stage {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  width: 100%;
+  overflow-y: auto;
+}
+
+.signing-card {
+  background: var(--color-card);
+  border-radius: 20px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  padding: 32px;
+  width: 100%;
+  max-width: 640px;
+}
+
+.signing-card h2 {
+  font-size: 22px;
+  margin: 0 0 16px;
+  color: var(--color-primary-dark);
+}
+
+.signing-card p {
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.signing-progress {
+  font-size: 14px;
+  color: #6b7c93;
+  margin-bottom: 12px;
+}
+
+.signing-filename {
+  font-size: 14px;
+  color: #6b7c93;
+}
+
+/* 重要事項説明の録音コントロール(任意機能)。文書表示の上に小さく置く */
+.audio-recorder-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.audio-recorder-box:empty {
+  margin-bottom: 0; /* 録音非対応環境では空要素になるので余白も消す */
+}
+
+.audio-recorder-status {
+  font-size: 15px;
+  font-weight: bold;
+  color: var(--color-text);
+}
+
+.audio-recorder-status.is-recording {
+  color: var(--color-danger);
+}
+
+.signing-field-label {
+  display: block;
+  margin-bottom: 16px;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.signing-field-label input[type="text"] {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 14px 16px;
+  border: 2px solid var(--color-border);
+  border-radius: 12px;
+  font-size: 20px;
+  font-family: inherit;
+}
+
+/* 本人/家族の二択。タブレットでのタップ操作を優先し、プルダウンより大きく即決できる形にする */
+.signing-role-toggle {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.signing-role-toggle-btn {
+  flex: 1 1 0;
+  padding: 16px 8px;
+  font-size: 17px;
+  font-weight: bold;
+  font-family: inherit;
+  border: 2px solid var(--color-border);
+  border-radius: 12px;
+  background: #ffffff;
+  color: var(--color-text);
+  cursor: pointer;
+  min-height: 56px;
+}
+
+.signing-role-toggle-btn.is-active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #ffffff;
+}
+
+.signing-checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 16px;
+  line-height: 1.6;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #fff6e6;
+  border-radius: 12px;
+}
+
+.signing-checkbox-row input {
+  width: 28px;
+  height: 28px;
+  margin-top: 2px;
+  flex: 0 0 auto;
+}
+
+.big-button {
+  display: block;
+  width: 100%;
+  border: none;
+  border-radius: 16px;
+  padding: 18px;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  min-height: 56px;
+  margin-top: 12px;
+  background: var(--color-primary);
+  color: #ffffff;
+  box-shadow: var(--shadow-soft);
+}
+
+.big-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.big-button-secondary {
+  background: #eceafb;
+  color: var(--color-primary-dark);
+}
+
+/* 「ここで契約を終了する」等、前向きな完了アクション用。グレーの二次ボタンに埋もれさせず、
+   「続ける」と同じくらい選びやすい見た目にする(本人の署名だけで完結するケースが実際には多いため) */
+.big-button-finish {
+  background: #2f9e83;
+  color: #ffffff;
+}
+
+.signature-pad-wrap {
+  border: 3px dashed var(--color-border);
+  border-radius: 16px;
+  background: #fffefb;
+  margin: 16px 0;
+  touch-action: none;
+}
+
+#signature-canvas {
+  display: block;
+  width: 100%;
+  touch-action: none;
+}
+
+.signer-thumb-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 2px solid var(--color-border);
+  border-radius: 12px;
+  margin-bottom: 10px;
+}
+
+.signer-thumb-row img {
+  width: 100px;
+  height: 40px;
+  object-fit: contain;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.signer-thumb-info {
+  font-size: 14px;
+  flex: 1 1 auto;
+}
+
+/* ===== 署名フロー: 文書プレビュー ===== */
+.signing-doc-wrap {
+  position: relative;
+  max-height: 60vh;
+  overflow: auto;
+  border: 2px solid var(--color-border);
+  border-radius: 12px;
+  background: #f4f5fa;
+  margin: 16px 0;
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+}
+
+.signing-doc-stage {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+/* .field-overlayと違いタッチでのスクロール・ピンチ操作を妨げない(読み取り専用のため) */
+.signing-field-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.signing-doc-stage canvas {
+  display: block;
+  background: #ffffff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.signing-doc-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.signing-doc-page-label {
+  font-size: 13px;
+  color: #6b7c93;
+  font-weight: bold;
+}
+
+.signing-field-highlight {
+  position: absolute;
+  border: 3px solid var(--color-secondary-dark);
+  background: rgba(232, 163, 61, 0.25);
+  border-radius: 6px;
+  cursor: pointer;
+  animation: signing-field-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes signing-field-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(232, 163, 61, 0.5); }
+  50% { box-shadow: 0 0 0 8px rgba(232, 163, 61, 0); }
+}
+
+.signing-field-tag {
+  position: absolute;
+  top: -26px;
+  left: 0;
+  font-size: 12px;
+  font-weight: bold;
+  color: #ffffff;
+  background: var(--color-secondary-dark);
+  padding: 3px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.signing-field-stamp {
+  position: absolute;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+/* ===== 署名モーダル ===== */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 24, 38, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 3000;
+}
+
+.signing-modal-box {
+  background: var(--color-card);
+  border-radius: 20px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+  padding: 28px;
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.signing-modal-box h3 {
+  font-size: 20px;
+  margin: 0 0 16px;
+  color: var(--color-primary-dark);
+}
+
+.signing-expand-toggle {
+  display: block;
+  margin: 0 0 8px auto;
+}
+
+.signing-modal-box.is-expanded {
+  max-width: 96vw;
+}
+
+/* ===== 初回案内 ===== */
+.welcome-modal-box {
+  max-width: 560px;
+  text-align: left;
+}
+
+.welcome-modal-box h3 {
+  font-size: 22px;
+}
+
+.welcome-lead {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-text);
+  margin: 0 0 20px;
+}
+
+.welcome-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.welcome-step {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px;
+  background: #f4f5fa;
+  border-radius: 12px;
+}
+
+.welcome-step-emoji {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--color-card);
+  border: 2px solid var(--color-secondary-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.welcome-step-title {
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--color-primary-dark);
+  margin-bottom: 2px;
+}
+
+.welcome-step-text {
+  font-size: 12px;
+  color: #6b7c93;
+  line-height: 1.5;
+}
+
+/* ===== 無効化画面 ===== */
+.void-result {
+  margin-top: 20px;
+  padding: 16px;
+  background: #fff6e6;
+  border-radius: 12px;
+}
+
+/* ===== 保存トースト ===== */
+.save-toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  background: #2f3b52;
+  color: #ffffff;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: bold;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  z-index: 2000;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  pointer-events: none;
+}
+
+.save-toast.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ===== 必須ファイル読み込みエラー ===== */
+.lib-missing-banner {
+  max-width: 560px;
+  margin: 60px auto;
+  padding: 28px;
+  background: var(--color-card);
+  border: 2px solid var(--color-secondary-dark);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.lib-missing-banner h2 {
+  margin: 0 0 12px;
+  font-size: 20px;
+  color: var(--color-primary-dark);
+}
+
+.lib-missing-detail {
+  margin-top: 16px;
+  padding: 10px 12px;
+  background: #f4f5fa;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #6b7c93;
+}

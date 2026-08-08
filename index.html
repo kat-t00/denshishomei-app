@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
+<title>電子契約アプリ（介護事業所向け）</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="app-header-top">
+      <h1>📝 電子契約アプリ</h1>
+      <a class="app-credit" href="https://x.com/kat_t0o" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M18.9 2H22l-7.6 8.7L23 22h-6.6l-5.2-6.8L5 22H1.9l8.1-9.3L1 2h6.7l4.7 6.2L18.9 2zM16.6 20h1.9L7.5 4H5.5L16.6 20z"/></svg>
+        作成：ケアマネカトゥ（@kat_t0o）
+      </a>
+    </div>
+    <nav class="toolbar">
+      <button id="btn-nav-home" class="tool-button" type="button">🏠 ホーム</button>
+      <button id="btn-nav-new-template" class="tool-button" type="button">🆕 新しいテンプレートを作る</button>
+      <button id="btn-nav-void" class="tool-button" type="button">🗂 契約の無効化・再契約</button>
+      <button id="btn-nav-help" class="tool-button" type="button">❓ 使い方</button>
+    </nav>
+  </header>
+
+  <main class="app-body">
+
+    <!-- ホーム画面: テンプレート一覧 -->
+    <section id="screen-home" class="app-screen">
+      <div class="screen-inner">
+        <h2>📋 テンプレート一覧</h2>
+        <p class="screen-hint">契約書・重要事項説明書のPDFに署名欄を配置したテンプレートです。一度作れば繰り返し使えます。</p>
+        <div class="thumb-size-control" id="thumb-size-control">
+          <span class="thumb-size-label">表示サイズ</span>
+          <button type="button" class="thumb-size-btn" data-size="small">小</button>
+          <button type="button" class="thumb-size-btn" data-size="medium">中</button>
+          <button type="button" class="thumb-size-btn" data-size="large">大</button>
+        </div>
+        <div id="template-list" class="template-grid"></div>
+        <div class="backup-actions">
+          <button id="btn-export-templates" class="tool-button-small" type="button">⬇ テンプレートをバックアップ</button>
+          <button id="btn-import-templates" class="tool-button-small" type="button">⬆ バックアップから復元・追加</button>
+          <input type="file" id="import-templates-input" accept="application/json" class="hidden" />
+        </div>
+      </div>
+    </section>
+
+    <!-- テンプレート編集画面: PDFインポート＋署名欄配置 -->
+    <section id="screen-template-editor" class="app-screen">
+      <div class="editor-layout">
+        <aside class="side-panel">
+          <h2>📄 PDFを選ぶ</h2>
+          <input type="file" id="pdf-file-input" accept="application/pdf" />
+          <h2>✍️ 項目を配置</h2>
+          <p class="side-panel-hint">ボタンを押してから、PDF上をドラッグして四角を描くと項目が追加されます。</p>
+          <div id="field-palette" class="fixture-palette"></div>
+          <div id="field-edit-panel" class="edit-popup"></div>
+          <h2>💾 テンプレートとして保存</h2>
+          <label class="field-label">書式名（必須）
+            <input type="text" id="template-name-input" placeholder="例：居宅介護支援 重要事項説明書" />
+          </label>
+          <label class="field-label">版のメモ（任意）
+            <input type="text" id="template-version-label-input" placeholder="例：2026年報酬改定対応版" />
+          </label>
+          <button id="btn-save-template" class="tool-button tool-button-primary" type="button">💾 テンプレートを保存</button>
+        </aside>
+        <div class="canvas-area">
+          <div class="canvas-overlay-toolbars">
+            <div class="canvas-toolbar">
+              <button id="btn-prev-page" class="tool-button" type="button">◀ 前のページ</button>
+              <span id="page-indicator" class="zoom-percent">1 / 1</span>
+              <button id="btn-next-page" class="tool-button" type="button">次のページ ▶</button>
+            </div>
+          </div>
+          <div class="pdf-stage-wrap" id="pdf-stage-wrap">
+            <div class="pdf-stage">
+              <canvas id="pdf-canvas"></canvas>
+              <div id="field-overlay" class="field-overlay"></div>
+            </div>
+          </div>
+          <div class="zoom-control">
+            <button id="btn-zoom-out" class="zoom-btn" type="button">－</button>
+            <span id="zoom-level" class="zoom-percent">100%</span>
+            <button id="btn-zoom-in" class="zoom-btn" type="button">＋</button>
+            <button id="btn-fit-view" class="zoom-btn" type="button">⤢</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 署名フロー画面 -->
+    <section id="screen-signing" class="app-screen">
+      <div class="signing-stage" id="signing-stage"></div>
+    </section>
+
+    <!-- 無効化・再契約画面 -->
+    <section id="screen-void" class="app-screen">
+      <div class="screen-inner">
+        <h2>🗂 契約の無効化・再契約</h2>
+        <p class="screen-hint">間違った内容で署名してしまった場合、元のPDFは書き換えず「無効化記録」を別途作成します。そのあと同じ内容で再契約できます。</p>
+        <label class="field-label">無効化したい署名済みPDF
+          <input type="file" id="void-pdf-input" accept="application/pdf" />
+        </label>
+        <label class="field-label">旧契約の検証ID（監査記録.jsonのverificationId、分かれば）
+          <input type="text" id="void-verification-id-input" placeholder="任意" />
+        </label>
+        <label class="field-label">無効化理由（必須）
+          <input type="text" id="void-reason-input" placeholder="例：住所変更のため再契約" />
+        </label>
+        <label class="field-label">手続き実施者名（必須）
+          <input type="text" id="void-staff-name-input" placeholder="例：担当ケアマネジャー名" />
+        </label>
+        <button id="btn-void-confirm" class="tool-button tool-button-primary" type="button">🗂 無効化記録を作成</button>
+        <div id="void-result" class="void-result hidden">
+          <p>無効化記録を作成しました。続けて再契約する場合は、使うテンプレートを選んでください。</p>
+          <div id="void-resign-template-list" class="template-grid"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <div id="save-toast" class="save-toast hidden"></div>
+
+  <script src="lib/pdf.min.js"></script>
+  <script src="lib/pdf_worker_src.js"></script>
+  <script src="lib/pdf-lib.min.js"></script>
+  <script src="lib/fontkit.umd.min.js"></script>
+  <script src="lib/fonts/notosansjp_base64.js"></script>
+
+  <script src="models.js"></script>
+  <script src="pdf_utils.js"></script>
+  <script src="hash_utils.js"></script>
+  <script src="template_store.js"></script>
+  <script src="field_editor.js"></script>
+  <script src="forms.js"></script>
+  <script src="signature_pad.js"></script>
+  <script src="audio_recorder.js"></script>
+  <script src="signing_flow.js"></script>
+  <script src="pdf_writer.js"></script>
+  <script src="audit.js"></script>
+  <script src="export.js"></script>
+  <script src="void_flow.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
