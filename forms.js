@@ -148,6 +148,25 @@ const Forms = (() => {
       container.appendChild(formatLabel);
     }
 
+    // 署名欄以外(画像ではなく活字を印字する項目)は文字サイズを選べる。
+    // 枠の幅に収まらない場合は今まで通り自動縮小されるので、ここでは「基準サイズ」の指定になる
+    if (field.type !== 'signature') {
+      const fontSizeLabel = document.createElement('label');
+      fontSizeLabel.className = 'field-label';
+      fontSizeLabel.textContent = '文字サイズ（pt）';
+      const fontSizeInput = document.createElement('input');
+      fontSizeInput.type = 'number';
+      fontSizeInput.min = '6';
+      fontSizeInput.max = '36';
+      fontSizeInput.value = field.fontSize || 11;
+      fontSizeInput.addEventListener('input', () => {
+        field.fontSize = parseInt(fontSizeInput.value, 10) || 11;
+        callbacks.onChange();
+      });
+      fontSizeLabel.appendChild(fontSizeInput);
+      container.appendChild(fontSizeLabel);
+    }
+
     if (field.type === 'signature') {
       const orderLabel = document.createElement('label');
       orderLabel.className = 'field-label';

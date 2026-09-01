@@ -42,6 +42,7 @@ const TemplateStore = (() => {
     // Models.createFieldのデフォルトと揃える(2026/8/8変更: 「どちらでも」が基本、続柄欄だけ「家族」)
     if (!f.assignedRole) f.assignedRole = (f.type === 'relationship') ? 'family' : 'either';
     if (f.linkedFieldId === undefined) f.linkedFieldId = null;
+    if (!(typeof f.fontSize === 'number' && isFinite(f.fontSize) && f.fontSize > 0)) f.fontSize = 11;
     if (!(typeof f.signOrder === 'number')) f.signOrder = 1;
     if (typeof f.required !== 'boolean') f.required = true;
     if (typeof f.label !== 'string') f.label = '';

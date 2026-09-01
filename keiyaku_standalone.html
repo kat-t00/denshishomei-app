@@ -1276,6 +1276,7 @@ const Models = (() => {
       signOrder: 1,
       required: true,
       label: '',
+      fontSize: 11, // 氏名欄・住所欄・続柄欄・日付欄・確認チェック欄のPDF印字時の文字サイズ(pt)
     }, overrides);
     // 続柄欄だけは例外: 「本人から見た続柄」は本人が自分に対して書く概念が存在しないため、
     // 明示的な指定が無ければ「家族」をデフォルトにする(「どちらでも」にすると本人選択時にも
@@ -1599,6 +1600,7 @@ const TemplateStore = (() => {
     // Models.createFieldのデフォルトと揃える(2026/8/8変更: 「どちらでも」が基本、続柄欄だけ「家族」)
     if (!f.assignedRole) f.assignedRole = (f.type === 'relationship') ? 'family' : 'either';
     if (f.linkedFieldId === undefined) f.linkedFieldId = null;
+    if (!(typeof f.fontSize === 'number' && isFinite(f.fontSize) && f.fontSize > 0)) f.fontSize = 11;
     if (!(typeof f.signOrder === 'number')) f.signOrder = 1;
     if (typeof f.required !== 'boolean') f.required = true;
     if (typeof f.label !== 'string') f.label = '';
@@ -2233,6 +2235,25 @@ const Forms = (() => {
       container.appendChild(formatLabel);
     }
 
+    // 署名欄以外(画像ではなく活字を印字する項目)は文字サイズを選べる。
+    // 枠の幅に収まらない場合は今まで通り自動縮小されるので、ここでは「基準サイズ」の指定になる
+    if (field.type !== 'signature') {
+      const fontSizeLabel = document.createElement('label');
+      fontSizeLabel.className = 'field-label';
+      fontSizeLabel.textContent = '文字サイズ（pt）';
+      const fontSizeInput = document.createElement('input');
+      fontSizeInput.type = 'number';
+      fontSizeInput.min = '6';
+      fontSizeInput.max = '36';
+      fontSizeInput.value = field.fontSize || 11;
+      fontSizeInput.addEventListener('input', () => {
+        field.fontSize = parseInt(fontSizeInput.value, 10) || 11;
+        callbacks.onChange();
+      });
+      fontSizeLabel.appendChild(fontSizeInput);
+      container.appendChild(fontSizeLabel);
+    }
+
     if (field.type === 'signature') {
       const orderLabel = document.createElement('label');
       orderLabel.className = 'field-label';
@@ -2428,8 +2449,21 @@ const SignaturePad = (() => {
       if (onStrokeChange) onStrokeChange(false);
     }
 
+    // 描いた線の範囲だけを切り出して画像化する。パッド全体(余白だらけ)をそのまま
+    // 書き出すと、配置先の枠をどれだけ広げても線自体は大きくならない(縮小されるだけ)ため、
+    // 実際に描かれた範囲にトリミングしてから渡すことで、枠の大きさに応じて線も大きく表示される
     function toDataUrl() {
-      return canvasEl.toDataURL('image/png');
+      if (!hasStroke) return canvasEl.toDataURL('image/png');
+      const margin = 6; // 線の端が切れないよう少し余白を残す
+      const cropX = Math.max(0, Math.floor(minX - margin));
+      const cropY = Math.max(0, Math.floor(minY - margin));
+      const cropW = Math.min(canvasEl.width, Math.ceil(maxX + margin)) - cropX;
+      const cropH = Math.min(canvasEl.height, Math.ceil(maxY + margin)) - cropY;
+      const cropCanvas = document.createElement('canvas');
+      cropCanvas.width = cropW;
+      cropCanvas.height = cropH;
+      cropCanvas.getContext('2d').drawImage(canvasEl, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+      return cropCanvas.toDataURL('image/png');
     }
 
     return { clear, isValid, toDataUrl };
@@ -2629,7 +2663,7 @@ const PdfWriter = (() => {
 
   function drawFieldText(page, font, field, text) {
     if (!text) return;
-    const baseSize = 11;
+    const baseSize = field.fontSize || 11;
     const size = fitFontSize(font, text, baseSize, field.width - 4);
     page.drawText(text, {
       x: field.x + 2,

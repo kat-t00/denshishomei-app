@@ -83,8 +83,21 @@ const SignaturePad = (() => {
       if (onStrokeChange) onStrokeChange(false);
     }
 
+    // 描いた線の範囲だけを切り出して画像化する。パッド全体(余白だらけ)をそのまま
+    // 書き出すと、配置先の枠をどれだけ広げても線自体は大きくならない(縮小されるだけ)ため、
+    // 実際に描かれた範囲にトリミングしてから渡すことで、枠の大きさに応じて線も大きく表示される
     function toDataUrl() {
-      return canvasEl.toDataURL('image/png');
+      if (!hasStroke) return canvasEl.toDataURL('image/png');
+      const margin = 6; // 線の端が切れないよう少し余白を残す
+      const cropX = Math.max(0, Math.floor(minX - margin));
+      const cropY = Math.max(0, Math.floor(minY - margin));
+      const cropW = Math.min(canvasEl.width, Math.ceil(maxX + margin)) - cropX;
+      const cropH = Math.min(canvasEl.height, Math.ceil(maxY + margin)) - cropY;
+      const cropCanvas = document.createElement('canvas');
+      cropCanvas.width = cropW;
+      cropCanvas.height = cropH;
+      cropCanvas.getContext('2d').drawImage(canvasEl, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+      return cropCanvas.toDataURL('image/png');
     }
 
     return { clear, isValid, toDataUrl };

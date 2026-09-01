@@ -39,7 +39,7 @@ const PdfWriter = (() => {
 
   function drawFieldText(page, font, field, text) {
     if (!text) return;
-    const baseSize = 11;
+    const baseSize = field.fontSize || 11;
     const size = fitFontSize(font, text, baseSize, field.width - 4);
     page.drawText(text, {
       x: field.x + 2,
