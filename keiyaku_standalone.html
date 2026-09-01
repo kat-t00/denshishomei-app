@@ -4033,9 +4033,23 @@ const VoidFlow = (() => {
     FieldEditor.attachDrawHandlers();
     Forms.renderFieldPalette(el.fieldPalette, (type) => FieldEditor.setArmedFieldType(type));
 
+    // PDFが大きすぎると、後で「テンプレートを保存」を押した時にlocalStorage容量超過で
+    // 失敗する(base64化すると元のファイルサイズの約1.3倍になる)。項目配置の作業が無駄に
+    // ならないよう、選んだ直後の時点で早めに警告する
+    const LARGE_PDF_WARN_BYTES = 3 * 1024 * 1024; // 3MB(base64後は約4MB)
+    function formatMb(bytes) { return (bytes / (1024 * 1024)).toFixed(1); }
+
     el.pdfFileInput.addEventListener('change', async () => {
       const file = el.pdfFileInput.files[0];
       if (!file) return;
+      if (file.size > LARGE_PDF_WARN_BYTES) {
+        const proceed = confirm(
+          'このPDFはサイズが大きいです（' + formatMb(file.size) + 'MB）。\n' +
+          'ブラウザの保存容量の上限に達し、テンプレートを保存できない可能性があります。\n' +
+          'このまま使いますか？（キャンセルすると別のPDFを選び直せます）'
+        );
+        if (!proceed) { el.pdfFileInput.value = ''; return; }
+      }
       showToast('PDFを読み込み中...', 15000);
       try {
         const buffer = await file.arrayBuffer();
