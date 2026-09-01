@@ -75,6 +75,18 @@ const FieldEditor = (() => {
   function getCurrentPageIndex() { return currentPageIndex; }
   function getPages() { return pages; }
 
+  // テンプレート全体(全ページ)の署名欄を、署名する順番で並べて返す。
+  // 氏名欄・住所欄などの付随項目を「どの署名欄の項目か」に紐付けるための一覧として使う
+  function getSignatureFields() {
+    const result = [];
+    pages.forEach(page => {
+      page.fields.forEach(f => {
+        if (f.type === 'signature') result.push(f);
+      });
+    });
+    return result.sort((a, b) => a.signOrder - b.signOrder);
+  }
+
   function setArmedFieldType(type) {
     armedFieldType = type;
   }
@@ -88,20 +100,45 @@ const FieldEditor = (() => {
     address: '住所欄',
   };
 
-  // 「本人の署名欄を家族に直したのに、下の住所欄が本人のままだった」という事故が
-  // 実際にあったため、役割を枠の色とラベルで常に見える化する(field-role-*はstyle.css側)。
-  const ROLE_LABELS = { recipient: '本人', family: '家族', either: 'どちらでも' };
+  // 「本人の住所欄と家族の住所欄、両方とも同じデータで上書きされて重なる」という事故が
+  // 実際にあった。役割(本人/家族)だけでのマッチングだと、署名欄が複数ある時に
+  // どの署名欄の付随項目かが区別できないのが原因だったため、「どの署名欄に属するか」で
+  // 紐付ける方式に変更。枠の色とラベルで常に見える化する(field-group-*はstyle.css側)。
+  const GROUP_COLOR_CLASSES = ['field-group-1', 'field-group-2', 'field-group-3'];
+
+  function groupColorClass(index) {
+    return GROUP_COLOR_CLASSES[index] || 'field-group-other';
+  }
+
+  function groupLabel(signatureField, index) {
+    return signatureField.label || (index + 1) + '人目の署名欄';
+  }
 
   function renderFieldBoxes() {
     overlayEl.innerHTML = '';
     const page = pages[currentPageIndex];
     const heightPt = page.heightPt;
+    const signatureFields = getSignatureFields();
+
     page.fields.forEach(field => {
       const box = document.createElement('div');
-      // 署名欄は役割をテンプレート側で固定しない(署名時にその場で選ぶ設計)ため、
-      // 役割の色分け・ラベル表示は氏名欄・住所欄などの付随項目だけに適用する
+      // 署名欄自体はどの署名欄グループにも属さない(グループの起点そのものなので)。
+      // 氏名欄・住所欄などの付随項目だけ、紐付いた署名欄グループの色を付ける
       const isSignature = field.type === 'signature';
-      box.className = 'field-box field-type-' + field.type + (isSignature ? '' : ' field-role-' + field.assignedRole);
+      let groupClass = '';
+      let groupText = '';
+      if (!isSignature) {
+        const groupIndex = signatureFields.findIndex(sf => sf.id === field.linkedFieldId);
+        if (groupIndex >= 0) {
+          groupClass = ' ' + groupColorClass(groupIndex);
+          groupText = groupLabel(signatureFields[groupIndex], groupIndex);
+        } else if (signatureFields.length >= 2) {
+          // 署名欄が2つ以上あるのにどれにも紐付いていない = 設定漏れ。目立つ警告色にする
+          groupClass = ' field-group-unlinked';
+          groupText = '⚠️ 署名欄未設定';
+        }
+      }
+      box.className = 'field-box field-type-' + field.type + groupClass;
       box.dataset.fieldId = field.id;
       const rect = PdfUtils.pdfRectToPixel(field, heightPt, zoom.getScale());
       box.style.left = rect.left + 'px';
@@ -111,9 +148,8 @@ const FieldEditor = (() => {
 
       const labelSpan = document.createElement('span');
       labelSpan.className = 'field-box-label';
-      const roleLabel = isSignature ? '' : (ROLE_LABELS[field.assignedRole] || '');
       labelSpan.textContent = (field.label || FIELD_TYPE_LABELS[field.type] || field.type) +
-        (roleLabel ? '（' + roleLabel + '）' : '');
+        (groupText ? '（' + groupText + '）' : '');
       box.appendChild(labelSpan);
 
       attachMoveHandlers(box, field, page);
@@ -278,6 +314,12 @@ const FieldEditor = (() => {
         x: rect.x, y: rect.y, width: rect.width, height: rect.height,
         signOrder: page.fields.length + 1,
       });
+      // 署名欄が1つしか無いテンプレートが標準形なので、その場合だけ自動で紐付ける
+      // (手間ゼロにする)。署名欄が2つ以上ある場合は事業所に明示的に選んでもらう
+      if (field.type !== 'signature') {
+        const sigFields = getSignatureFields();
+        if (sigFields.length === 1) field.linkedFieldId = sigFields[0].id;
+      }
       page.fields.push(field);
       renderFieldBoxes();
       selectField(field);
@@ -295,7 +337,7 @@ const FieldEditor = (() => {
   return {
     init, loadPdfBytes, loadFromTemplate,
     zoomIn, zoomOut, fitToView, goToPage,
-    getPageCount, getCurrentPageIndex, getPages,
+    getPageCount, getCurrentPageIndex, getPages, getSignatureFields,
     setArmedFieldType, attachDrawHandlers, renderFieldBoxes, removeField,
   };
 })();

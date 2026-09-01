@@ -174,24 +174,22 @@
     relationship: '続柄欄', declaration_checkbox: '確認チェック欄', address: '住所欄',
   };
 
-  // 「本人の署名欄を家族に直したのに、下の住所欄が本人のままだった」という事故が
-  // 実際にあった。役割は項目ごとに独立して持っているだけで自動連動しないため、
-  // 同じ役割に同じ種類の項目が複数あれば、設定ミスの可能性が高いとみなして保存前に警告する。
-  function findRoleDuplicateWarnings(pages) {
-    const counts = {};
+  // 「本人欄の住所も家族欄の住所も、同じデータで上書きされて重なる」という事故が
+  // 実際にあった。署名欄が2つ以上あるテンプレートで、氏名欄・住所欄などの付随項目が
+  // どの署名欄の項目か(linkedFieldId)未設定のままだと発生するため、保存前に警告する。
+  // 署名欄が1つだけのテンプレート(標準形)は自動で紐付くため、この警告の対象外
+  function findUnlinkedFieldWarnings(pages) {
+    const signatureFields = [];
+    pages.forEach(page => page.fields.forEach(f => { if (f.type === 'signature') signatureFields.push(f); }));
+    if (signatureFields.length < 2) return [];
+    const warnings = [];
     pages.forEach(page => {
       page.fields.forEach(f => {
-        if (f.type === 'signature') return; // 署名欄は役割を固定しない設計になったため対象外
-        if (f.assignedRole === 'either') return; // どちらでも欄は重複しても曖昧にならない
-        const key = f.type + '|' + f.assignedRole;
-        counts[key] = (counts[key] || 0) + 1;
+        if (f.type === 'signature' || f.linkedFieldId) return;
+        warnings.push('「' + (f.label || FIELD_TYPE_LABELS_FOR_WARNING[f.type] || f.type) + '」がどの署名欄の項目か設定されていません');
       });
     });
-    return Object.keys(counts).filter(k => counts[k] >= 2).map(key => {
-      const [type, role] = key.split('|');
-      return '「' + (FIELD_TYPE_LABELS_FOR_WARNING[type] || type) + '」が「' +
-        (ROLE_LABELS[role] || role) + '」に' + counts[key] + '個割り当てられています';
-    });
+    return warnings;
   }
 
   function saveCurrentTemplate() {
@@ -201,10 +199,10 @@
     const pages = FieldEditor.getPages();
     const versionLabel = el.templateVersionLabelInput.value.trim();
 
-    const roleWarnings = findRoleDuplicateWarnings(pages);
-    if (roleWarnings.length) {
-      const msg = '保存前にご確認ください（役割の設定ミスの可能性があります）:\n\n・' +
-        roleWarnings.join('\n・') + '\n\nこのまま保存しますか？';
+    const unlinkedWarnings = findUnlinkedFieldWarnings(pages);
+    if (unlinkedWarnings.length) {
+      const msg = '保存前にご確認ください（このままだと印字先が決まりません）:\n\n・' +
+        unlinkedWarnings.join('\n・') + '\n\nこのまま保存しますか？';
       if (!confirm(msg)) return;
     }
 
@@ -572,13 +570,16 @@
     nav.appendChild(nextBtn);
   }
 
-  // currentSigningTemplateの全ページから、指定した役割・種類に一致するフィールドを集める。
-  // 「どちらでも」欄はここでは扱わない(役割が確定した後の呼び出し側でrole文字列として渡す)
-  function findTemplateFieldsForRole(role, types) {
+  // currentSigningTemplateの全ページから、今署名中の署名欄(linkedSignatureFieldId)に
+  // 紐付き、かつ指定した役割・種類に一致するフィールドを集める。
+  // 署名欄が複数あるテンプレートで、別の署名欄向けの確認チェック欄まで拾ってしまう事故を
+  // 防ぐため、役割だけでなく紐付け(linkedFieldId)でも絞り込む
+  function findTemplateFieldsForRole(role, types, linkedSignatureFieldId) {
     const results = [];
     currentSigningTemplate.pages.forEach(page => {
       page.fields.forEach(f => {
         if (!types.includes(f.type)) return;
+        if (f.linkedFieldId !== linkedSignatureFieldId) return;
         if (f.assignedRole === role || f.assignedRole === 'either') results.push(f);
       });
     });
@@ -687,7 +688,7 @@
 
       declarationsSection.innerHTML = '';
       declarationCheckboxes = [];
-      findTemplateFieldsForRole(role, ['declaration_checkbox']).forEach(f => {
+      findTemplateFieldsForRole(role, ['declaration_checkbox'], field.id).forEach(f => {
         const row = document.createElement('label');
         row.className = 'signing-checkbox-row';
         const cb = document.createElement('input');
@@ -1096,16 +1097,22 @@
     });
     applyThumbSize(localStorage.getItem(THUMB_SIZE_STORAGE_KEY) || 'medium');
 
+    function openFieldEditPanel(field) {
+      Forms.renderFieldEditPanel(el.fieldEditPanel, field, {
+        signatureFields: FieldEditor.getSignatureFields(),
+        onChange: () => FieldEditor.renderFieldBoxes(),
+        // 「どの署名欄の項目か」の選択直後は、枠だけでなく警告文の表示も
+        // 最新化したいのでパネルごと作り直す(selectは再描画してもフォーカスを失わない)
+        onLinkChange: () => { FieldEditor.renderFieldBoxes(); openFieldEditPanel(field); },
+        onDelete: () => { FieldEditor.removeField(field.id); Forms.renderFieldEditPanel(el.fieldEditPanel, null); },
+      });
+    }
+
     FieldEditor.init({
       canvasEl: q('pdf-canvas'),
       overlayEl: q('field-overlay'),
       zoomLabelEl: q('zoom-level'),
-      onFieldSelected: (field) => {
-        Forms.renderFieldEditPanel(el.fieldEditPanel, field, {
-          onChange: () => FieldEditor.renderFieldBoxes(),
-          onDelete: () => { FieldEditor.removeField(field.id); Forms.renderFieldEditPanel(el.fieldEditPanel, null); },
-        });
-      },
+      onFieldSelected: openFieldEditPanel,
       onPagesChanged: () => {},
     });
     FieldEditor.attachDrawHandlers();

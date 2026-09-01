@@ -41,6 +41,7 @@ const TemplateStore = (() => {
     if (f.type === 'date' && !f.dateFormat) f.dateFormat = 'gregorian';
     // Models.createFieldのデフォルトと揃える(2026/8/8変更: 「どちらでも」が基本、続柄欄だけ「家族」)
     if (!f.assignedRole) f.assignedRole = (f.type === 'relationship') ? 'family' : 'either';
+    if (f.linkedFieldId === undefined) f.linkedFieldId = null;
     if (!(typeof f.signOrder === 'number')) f.signOrder = 1;
     if (typeof f.required !== 'boolean') f.required = true;
     if (typeof f.label !== 'string') f.label = '';
@@ -48,7 +49,7 @@ const TemplateStore = (() => {
   }
 
   function normalizeTemplate(t) {
-    return Object.assign({}, t, {
+    const normalized = Object.assign({}, t, {
       version: typeof t.version === 'number' ? t.version : 1,
       familyId: t.familyId || t.id,
       supersededBy: t.supersededBy || null,
@@ -58,6 +59,19 @@ const TemplateStore = (() => {
         fields: (p.fields || []).map(normalizeField),
       })),
     });
+    // 署名欄が1つしかないテンプレートでは、付随項目の紐付け漏れを自動で補う
+    // (単一署名欄が今の標準形のため、ほとんどのケースをここで無音解決できる)。
+    // 署名欄が2つ以上ある場合は「どちらの署名欄の項目か」を機械的に推測できないため
+    // 補わない(誤って推測すると、印字先が入れ替わる事故を防ぐ目的自体が崩れるため)。
+    const signatureFields = [];
+    normalized.pages.forEach(p => p.fields.forEach(f => { if (f.type === 'signature') signatureFields.push(f); }));
+    if (signatureFields.length === 1) {
+      const onlyId = signatureFields[0].id;
+      normalized.pages.forEach(p => p.fields.forEach(f => {
+        if (f.type !== 'signature' && !f.linkedFieldId) f.linkedFieldId = onlyId;
+      }));
+    }
+    return normalized;
   }
 
   // 一覧表示用の軽量な情報だけ返す(PDF本体は含まない)

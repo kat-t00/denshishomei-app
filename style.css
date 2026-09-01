@@ -204,6 +204,11 @@ body {
   line-height: 1.5;
 }
 
+.field-link-warning {
+  color: var(--color-danger);
+  font-weight: bold;
+}
+
 .field-label {
   display: block;
   margin-bottom: 12px;
@@ -373,16 +378,29 @@ body {
   cursor: move;
 }
 
-/* 役割ごとに枠色を変える(本人=既定のインディゴ、家族=ゴールド、どちらでも=グレー)。
-   誰の項目か一目で分かるようにして、役割の設定ミス・連動漏れに気づきやすくする */
-.field-box.field-role-family {
+/* どの署名欄グループに属するかで枠色を変える(1人目=既定のインディゴ、2人目=緑、
+   3人目=紫、4人目以降=グレー)。誰の付随項目か一目で分かるようにして、
+   紐付け漏れ(=別の署名欄のデータが誤って印字される事故)に気づきやすくする */
+.field-box.field-group-2 {
   border-color: #2f9e83;
   background: rgba(47, 158, 131, 0.14);
 }
 
-.field-box.field-role-either {
+.field-box.field-group-3 {
+  border-color: #8956d6;
+  background: rgba(137, 86, 214, 0.14);
+}
+
+.field-box.field-group-other {
   border-color: #8d95a8;
   background: rgba(141, 149, 168, 0.14);
+}
+
+/* 署名欄が2つ以上あるのに、どの署名欄の項目か未設定のまま = 印字事故のもと。
+   選択色(ゴールド)や他グループ色と被らない赤で強く警告する */
+.field-box.field-group-unlinked {
+  border-color: var(--color-danger);
+  background: rgba(224, 87, 90, 0.16);
 }
 
 .field-box.is-selected {

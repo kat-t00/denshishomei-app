@@ -211,6 +211,11 @@ body {
   line-height: 1.5;
 }
 
+.field-link-warning {
+  color: var(--color-danger);
+  font-weight: bold;
+}
+
 .field-label {
   display: block;
   margin-bottom: 12px;
@@ -380,16 +385,29 @@ body {
   cursor: move;
 }
 
-/* 役割ごとに枠色を変える(本人=既定のインディゴ、家族=ゴールド、どちらでも=グレー)。
-   誰の項目か一目で分かるようにして、役割の設定ミス・連動漏れに気づきやすくする */
-.field-box.field-role-family {
+/* どの署名欄グループに属するかで枠色を変える(1人目=既定のインディゴ、2人目=緑、
+   3人目=紫、4人目以降=グレー)。誰の付随項目か一目で分かるようにして、
+   紐付け漏れ(=別の署名欄のデータが誤って印字される事故)に気づきやすくする */
+.field-box.field-group-2 {
   border-color: #2f9e83;
   background: rgba(47, 158, 131, 0.14);
 }
 
-.field-box.field-role-either {
+.field-box.field-group-3 {
+  border-color: #8956d6;
+  background: rgba(137, 86, 214, 0.14);
+}
+
+.field-box.field-group-other {
   border-color: #8d95a8;
   background: rgba(141, 149, 168, 0.14);
+}
+
+/* 署名欄が2つ以上あるのに、どの署名欄の項目か未設定のまま = 印字事故のもと。
+   選択色(ゴールド)や他グループ色と被らない赤で強く警告する */
+.field-box.field-group-unlinked {
+  border-color: var(--color-danger);
+  background: rgba(224, 87, 90, 0.16);
 }
 
 .field-box.is-selected {
@@ -1250,6 +1268,11 @@ const Models = (() => {
       // 「どちらでも」をデフォルトにする(署名欄は常にその場で本人/家族を選ぶ設計になったため、
       // 付随項目もどちらの署名でも自動で埋まる形が一番手間が少ない。役割を絞りたい時だけ明示的に変える)
       assignedRole: 'either',
+      // どの署名欄の付随項目か(氏名欄・住所欄・続柄欄・日付欄・確認チェック欄で使用)。
+      // PDF書き込み時はこのIDで紐付いた署名欄の署名者のデータだけを印字する。
+      // 役割(assignedRole)だけでマッチングすると、署名欄が複数ある時に別の署名欄の
+      // データが誤って印字される事故が実際にあったため導入した(field_editor.jsで自動/手動設定)
+      linkedFieldId: null,
       signOrder: 1,
       required: true,
       label: '',
@@ -1575,6 +1598,7 @@ const TemplateStore = (() => {
     if (f.type === 'date' && !f.dateFormat) f.dateFormat = 'gregorian';
     // Models.createFieldのデフォルトと揃える(2026/8/8変更: 「どちらでも」が基本、続柄欄だけ「家族」)
     if (!f.assignedRole) f.assignedRole = (f.type === 'relationship') ? 'family' : 'either';
+    if (f.linkedFieldId === undefined) f.linkedFieldId = null;
     if (!(typeof f.signOrder === 'number')) f.signOrder = 1;
     if (typeof f.required !== 'boolean') f.required = true;
     if (typeof f.label !== 'string') f.label = '';
@@ -1582,7 +1606,7 @@ const TemplateStore = (() => {
   }
 
   function normalizeTemplate(t) {
-    return Object.assign({}, t, {
+    const normalized = Object.assign({}, t, {
       version: typeof t.version === 'number' ? t.version : 1,
       familyId: t.familyId || t.id,
       supersededBy: t.supersededBy || null,
@@ -1592,6 +1616,19 @@ const TemplateStore = (() => {
         fields: (p.fields || []).map(normalizeField),
       })),
     });
+    // 署名欄が1つしかないテンプレートでは、付随項目の紐付け漏れを自動で補う
+    // (単一署名欄が今の標準形のため、ほとんどのケースをここで無音解決できる)。
+    // 署名欄が2つ以上ある場合は「どちらの署名欄の項目か」を機械的に推測できないため
+    // 補わない(誤って推測すると、印字先が入れ替わる事故を防ぐ目的自体が崩れるため)。
+    const signatureFields = [];
+    normalized.pages.forEach(p => p.fields.forEach(f => { if (f.type === 'signature') signatureFields.push(f); }));
+    if (signatureFields.length === 1) {
+      const onlyId = signatureFields[0].id;
+      normalized.pages.forEach(p => p.fields.forEach(f => {
+        if (f.type !== 'signature' && !f.linkedFieldId) f.linkedFieldId = onlyId;
+      }));
+    }
+    return normalized;
   }
 
   // 一覧表示用の軽量な情報だけ返す(PDF本体は含まない)
@@ -1777,6 +1814,18 @@ const FieldEditor = (() => {
   function getCurrentPageIndex() { return currentPageIndex; }
   function getPages() { return pages; }
 
+  // テンプレート全体(全ページ)の署名欄を、署名する順番で並べて返す。
+  // 氏名欄・住所欄などの付随項目を「どの署名欄の項目か」に紐付けるための一覧として使う
+  function getSignatureFields() {
+    const result = [];
+    pages.forEach(page => {
+      page.fields.forEach(f => {
+        if (f.type === 'signature') result.push(f);
+      });
+    });
+    return result.sort((a, b) => a.signOrder - b.signOrder);
+  }
+
   function setArmedFieldType(type) {
     armedFieldType = type;
   }
@@ -1790,20 +1839,45 @@ const FieldEditor = (() => {
     address: '住所欄',
   };
 
-  // 「本人の署名欄を家族に直したのに、下の住所欄が本人のままだった」という事故が
-  // 実際にあったため、役割を枠の色とラベルで常に見える化する(field-role-*はstyle.css側)。
-  const ROLE_LABELS = { recipient: '本人', family: '家族', either: 'どちらでも' };
+  // 「本人の住所欄と家族の住所欄、両方とも同じデータで上書きされて重なる」という事故が
+  // 実際にあった。役割(本人/家族)だけでのマッチングだと、署名欄が複数ある時に
+  // どの署名欄の付随項目かが区別できないのが原因だったため、「どの署名欄に属するか」で
+  // 紐付ける方式に変更。枠の色とラベルで常に見える化する(field-group-*はstyle.css側)。
+  const GROUP_COLOR_CLASSES = ['field-group-1', 'field-group-2', 'field-group-3'];
+
+  function groupColorClass(index) {
+    return GROUP_COLOR_CLASSES[index] || 'field-group-other';
+  }
+
+  function groupLabel(signatureField, index) {
+    return signatureField.label || (index + 1) + '人目の署名欄';
+  }
 
   function renderFieldBoxes() {
     overlayEl.innerHTML = '';
     const page = pages[currentPageIndex];
     const heightPt = page.heightPt;
+    const signatureFields = getSignatureFields();
+
     page.fields.forEach(field => {
       const box = document.createElement('div');
-      // 署名欄は役割をテンプレート側で固定しない(署名時にその場で選ぶ設計)ため、
-      // 役割の色分け・ラベル表示は氏名欄・住所欄などの付随項目だけに適用する
+      // 署名欄自体はどの署名欄グループにも属さない(グループの起点そのものなので)。
+      // 氏名欄・住所欄などの付随項目だけ、紐付いた署名欄グループの色を付ける
       const isSignature = field.type === 'signature';
-      box.className = 'field-box field-type-' + field.type + (isSignature ? '' : ' field-role-' + field.assignedRole);
+      let groupClass = '';
+      let groupText = '';
+      if (!isSignature) {
+        const groupIndex = signatureFields.findIndex(sf => sf.id === field.linkedFieldId);
+        if (groupIndex >= 0) {
+          groupClass = ' ' + groupColorClass(groupIndex);
+          groupText = groupLabel(signatureFields[groupIndex], groupIndex);
+        } else if (signatureFields.length >= 2) {
+          // 署名欄が2つ以上あるのにどれにも紐付いていない = 設定漏れ。目立つ警告色にする
+          groupClass = ' field-group-unlinked';
+          groupText = '⚠️ 署名欄未設定';
+        }
+      }
+      box.className = 'field-box field-type-' + field.type + groupClass;
       box.dataset.fieldId = field.id;
       const rect = PdfUtils.pdfRectToPixel(field, heightPt, zoom.getScale());
       box.style.left = rect.left + 'px';
@@ -1813,9 +1887,8 @@ const FieldEditor = (() => {
 
       const labelSpan = document.createElement('span');
       labelSpan.className = 'field-box-label';
-      const roleLabel = isSignature ? '' : (ROLE_LABELS[field.assignedRole] || '');
       labelSpan.textContent = (field.label || FIELD_TYPE_LABELS[field.type] || field.type) +
-        (roleLabel ? '（' + roleLabel + '）' : '');
+        (groupText ? '（' + groupText + '）' : '');
       box.appendChild(labelSpan);
 
       attachMoveHandlers(box, field, page);
@@ -1980,6 +2053,12 @@ const FieldEditor = (() => {
         x: rect.x, y: rect.y, width: rect.width, height: rect.height,
         signOrder: page.fields.length + 1,
       });
+      // 署名欄が1つしか無いテンプレートが標準形なので、その場合だけ自動で紐付ける
+      // (手間ゼロにする)。署名欄が2つ以上ある場合は事業所に明示的に選んでもらう
+      if (field.type !== 'signature') {
+        const sigFields = getSignatureFields();
+        if (sigFields.length === 1) field.linkedFieldId = sigFields[0].id;
+      }
       page.fields.push(field);
       renderFieldBoxes();
       selectField(field);
@@ -1997,7 +2076,7 @@ const FieldEditor = (() => {
   return {
     init, loadPdfBytes, loadFromTemplate,
     zoomIn, zoomOut, fitToView, goToPage,
-    getPageCount, getCurrentPageIndex, getPages,
+    getPageCount, getCurrentPageIndex, getPages, getSignatureFields,
     setArmedFieldType, attachDrawHandlers, renderFieldBoxes, removeField,
   };
 })();
@@ -2051,16 +2130,53 @@ const Forms = (() => {
     container.appendChild(title);
 
     // 署名欄は役割をテンプレート側で固定しない(署名時にその場で本人/家族を選んでもらう設計のため)。
-    // 氏名欄・住所欄などの付随項目だけ、役割を絞りたい場合に選べるようにする
+    // 氏名欄・住所欄などの付随項目は、代わりに「どの署名欄の項目か」を明示的に紐付ける
+    // (役割だけでマッチングすると、署名欄が複数ある時に別の署名欄のデータが誤って
+    // 印字される事故が実際にあったため)
+    const signatureFields = callbacks.signatureFields || [];
     if (field.type === 'signature') {
       const roleNote = document.createElement('p');
       roleNote.className = 'side-panel-hint';
       roleNote.textContent = '署名時に「利用者本人」か「ご家族（代理）」かをその都度選んでいただきます。';
       container.appendChild(roleNote);
     } else {
+      const linkLabel = document.createElement('label');
+      linkLabel.className = 'field-label';
+      linkLabel.textContent = 'どの署名欄の項目か';
+      const linkSelect = document.createElement('select');
+      const noneOption = document.createElement('option');
+      noneOption.value = '';
+      noneOption.textContent = signatureFields.length ? '未設定（選んでください）' : '（先に署名欄を配置してください）';
+      linkSelect.appendChild(noneOption);
+      signatureFields.forEach((sf, idx) => {
+        const option = document.createElement('option');
+        option.value = sf.id;
+        option.textContent = sf.label || (idx + 1) + '人目の署名欄';
+        linkSelect.appendChild(option);
+      });
+      linkSelect.value = field.linkedFieldId || '';
+      linkSelect.addEventListener('change', () => {
+        field.linkedFieldId = linkSelect.value || null;
+        // 選択のたびにパネルの警告文も更新したいため、テキスト入力と違って
+        // フォーカスを失う心配がないselectの変更時だけはパネルごと再描画する
+        (callbacks.onLinkChange || callbacks.onChange)();
+      });
+      linkLabel.appendChild(linkSelect);
+      container.appendChild(linkLabel);
+      if (signatureFields.length >= 2 && !field.linkedFieldId) {
+        const warn = document.createElement('p');
+        warn.className = 'side-panel-hint field-link-warning';
+        warn.textContent = '⚠️ 署名欄が複数あります。このままだと印字先が決まらないため、必ず選んでください。';
+        container.appendChild(warn);
+      }
+    }
+
+    // declaration_checkbox(確認チェック欄)だけは、紐付いた署名欄の中でも
+    // 「誰が署名した時に表示するか」をさらに絞れる(例：代理権限確認は家族の時だけ等)
+    if (field.type === 'declaration_checkbox') {
       const roleLabel = document.createElement('label');
       roleLabel.className = 'field-label';
-      roleLabel.textContent = '誰が入力する項目か';
+      roleLabel.textContent = '表示条件（誰が署名した時に確認させるか）';
       const roleSelect = document.createElement('select');
       Object.keys(ROLE_LABELS).concat(['either']).forEach(role => {
         const option = document.createElement('option');
@@ -2546,18 +2662,21 @@ const PdfWriter = (() => {
     return null;
   }
 
-  // 署名欄と同じ役割の 氏名/住所/続柄/日付/確認チェック欄 を関連項目とみなして値を埋める。
-  // 「どちらでも」欄は実際に選ばれた役割(signerRole)で判定する(署名欄自体のassignedRoleは
-  // 常に'either'のままなので、そこと比較すると本人/家族固定の関連項目を拾えなくなるため)
+  // signatureFieldに明示的に紐付いた(linkedFieldId一致) 氏名/住所/続柄/日付/確認チェック欄 を
+  // 関連項目とみなして値を埋める。以前は役割(本人/家族)だけでマッチングしていたが、
+  // 署名欄が複数あるテンプレートで「本人欄の下に家族の住所が印字される」等の事故が
+  // 実際にあったため、「どの署名欄の項目か」を明示的に紐付ける方式に変更した。
+  // declaration_checkbox(確認チェック欄)だけは、紐付いた上でさらに
+  // 「誰が署名した時に表示するか」(assignedRole)の条件も満たす必要がある
   function relatedTextFields(pages, signatureField, signerRole) {
     const results = [];
     pages.forEach(page => {
       page.fields.forEach(f => {
         if (f.id === signatureField.id) return;
         if (f.type !== 'name' && f.type !== 'relationship' && f.type !== 'date' && f.type !== 'address' && f.type !== 'declaration_checkbox') return;
-        if (f.assignedRole === signerRole || f.assignedRole === 'either') {
-          results.push(f);
-        }
+        if (f.linkedFieldId !== signatureField.id) return;
+        if (f.type === 'declaration_checkbox' && !(f.assignedRole === signerRole || f.assignedRole === 'either')) return;
+        results.push(f);
       });
     });
     return results;
@@ -3104,24 +3223,22 @@ const VoidFlow = (() => {
     relationship: '続柄欄', declaration_checkbox: '確認チェック欄', address: '住所欄',
   };
 
-  // 「本人の署名欄を家族に直したのに、下の住所欄が本人のままだった」という事故が
-  // 実際にあった。役割は項目ごとに独立して持っているだけで自動連動しないため、
-  // 同じ役割に同じ種類の項目が複数あれば、設定ミスの可能性が高いとみなして保存前に警告する。
-  function findRoleDuplicateWarnings(pages) {
-    const counts = {};
+  // 「本人欄の住所も家族欄の住所も、同じデータで上書きされて重なる」という事故が
+  // 実際にあった。署名欄が2つ以上あるテンプレートで、氏名欄・住所欄などの付随項目が
+  // どの署名欄の項目か(linkedFieldId)未設定のままだと発生するため、保存前に警告する。
+  // 署名欄が1つだけのテンプレート(標準形)は自動で紐付くため、この警告の対象外
+  function findUnlinkedFieldWarnings(pages) {
+    const signatureFields = [];
+    pages.forEach(page => page.fields.forEach(f => { if (f.type === 'signature') signatureFields.push(f); }));
+    if (signatureFields.length < 2) return [];
+    const warnings = [];
     pages.forEach(page => {
       page.fields.forEach(f => {
-        if (f.type === 'signature') return; // 署名欄は役割を固定しない設計になったため対象外
-        if (f.assignedRole === 'either') return; // どちらでも欄は重複しても曖昧にならない
-        const key = f.type + '|' + f.assignedRole;
-        counts[key] = (counts[key] || 0) + 1;
+        if (f.type === 'signature' || f.linkedFieldId) return;
+        warnings.push('「' + (f.label || FIELD_TYPE_LABELS_FOR_WARNING[f.type] || f.type) + '」がどの署名欄の項目か設定されていません');
       });
     });
-    return Object.keys(counts).filter(k => counts[k] >= 2).map(key => {
-      const [type, role] = key.split('|');
-      return '「' + (FIELD_TYPE_LABELS_FOR_WARNING[type] || type) + '」が「' +
-        (ROLE_LABELS[role] || role) + '」に' + counts[key] + '個割り当てられています';
-    });
+    return warnings;
   }
 
   function saveCurrentTemplate() {
@@ -3131,10 +3248,10 @@ const VoidFlow = (() => {
     const pages = FieldEditor.getPages();
     const versionLabel = el.templateVersionLabelInput.value.trim();
 
-    const roleWarnings = findRoleDuplicateWarnings(pages);
-    if (roleWarnings.length) {
-      const msg = '保存前にご確認ください（役割の設定ミスの可能性があります）:\n\n・' +
-        roleWarnings.join('\n・') + '\n\nこのまま保存しますか？';
+    const unlinkedWarnings = findUnlinkedFieldWarnings(pages);
+    if (unlinkedWarnings.length) {
+      const msg = '保存前にご確認ください（このままだと印字先が決まりません）:\n\n・' +
+        unlinkedWarnings.join('\n・') + '\n\nこのまま保存しますか？';
       if (!confirm(msg)) return;
     }
 
@@ -3502,13 +3619,16 @@ const VoidFlow = (() => {
     nav.appendChild(nextBtn);
   }
 
-  // currentSigningTemplateの全ページから、指定した役割・種類に一致するフィールドを集める。
-  // 「どちらでも」欄はここでは扱わない(役割が確定した後の呼び出し側でrole文字列として渡す)
-  function findTemplateFieldsForRole(role, types) {
+  // currentSigningTemplateの全ページから、今署名中の署名欄(linkedSignatureFieldId)に
+  // 紐付き、かつ指定した役割・種類に一致するフィールドを集める。
+  // 署名欄が複数あるテンプレートで、別の署名欄向けの確認チェック欄まで拾ってしまう事故を
+  // 防ぐため、役割だけでなく紐付け(linkedFieldId)でも絞り込む
+  function findTemplateFieldsForRole(role, types, linkedSignatureFieldId) {
     const results = [];
     currentSigningTemplate.pages.forEach(page => {
       page.fields.forEach(f => {
         if (!types.includes(f.type)) return;
+        if (f.linkedFieldId !== linkedSignatureFieldId) return;
         if (f.assignedRole === role || f.assignedRole === 'either') results.push(f);
       });
     });
@@ -3617,7 +3737,7 @@ const VoidFlow = (() => {
 
       declarationsSection.innerHTML = '';
       declarationCheckboxes = [];
-      findTemplateFieldsForRole(role, ['declaration_checkbox']).forEach(f => {
+      findTemplateFieldsForRole(role, ['declaration_checkbox'], field.id).forEach(f => {
         const row = document.createElement('label');
         row.className = 'signing-checkbox-row';
         const cb = document.createElement('input');
@@ -4026,16 +4146,22 @@ const VoidFlow = (() => {
     });
     applyThumbSize(localStorage.getItem(THUMB_SIZE_STORAGE_KEY) || 'medium');
 
+    function openFieldEditPanel(field) {
+      Forms.renderFieldEditPanel(el.fieldEditPanel, field, {
+        signatureFields: FieldEditor.getSignatureFields(),
+        onChange: () => FieldEditor.renderFieldBoxes(),
+        // 「どの署名欄の項目か」の選択直後は、枠だけでなく警告文の表示も
+        // 最新化したいのでパネルごと作り直す(selectは再描画してもフォーカスを失わない)
+        onLinkChange: () => { FieldEditor.renderFieldBoxes(); openFieldEditPanel(field); },
+        onDelete: () => { FieldEditor.removeField(field.id); Forms.renderFieldEditPanel(el.fieldEditPanel, null); },
+      });
+    }
+
     FieldEditor.init({
       canvasEl: q('pdf-canvas'),
       overlayEl: q('field-overlay'),
       zoomLabelEl: q('zoom-level'),
-      onFieldSelected: (field) => {
-        Forms.renderFieldEditPanel(el.fieldEditPanel, field, {
-          onChange: () => FieldEditor.renderFieldBoxes(),
-          onDelete: () => { FieldEditor.removeField(field.id); Forms.renderFieldEditPanel(el.fieldEditPanel, null); },
-        });
-      },
+      onFieldSelected: openFieldEditPanel,
       onPagesChanged: () => {},
     });
     FieldEditor.attachDrawHandlers();

@@ -45,16 +45,53 @@ const Forms = (() => {
     container.appendChild(title);
 
     // 署名欄は役割をテンプレート側で固定しない(署名時にその場で本人/家族を選んでもらう設計のため)。
-    // 氏名欄・住所欄などの付随項目だけ、役割を絞りたい場合に選べるようにする
+    // 氏名欄・住所欄などの付随項目は、代わりに「どの署名欄の項目か」を明示的に紐付ける
+    // (役割だけでマッチングすると、署名欄が複数ある時に別の署名欄のデータが誤って
+    // 印字される事故が実際にあったため)
+    const signatureFields = callbacks.signatureFields || [];
     if (field.type === 'signature') {
       const roleNote = document.createElement('p');
       roleNote.className = 'side-panel-hint';
       roleNote.textContent = '署名時に「利用者本人」か「ご家族（代理）」かをその都度選んでいただきます。';
       container.appendChild(roleNote);
     } else {
+      const linkLabel = document.createElement('label');
+      linkLabel.className = 'field-label';
+      linkLabel.textContent = 'どの署名欄の項目か';
+      const linkSelect = document.createElement('select');
+      const noneOption = document.createElement('option');
+      noneOption.value = '';
+      noneOption.textContent = signatureFields.length ? '未設定（選んでください）' : '（先に署名欄を配置してください）';
+      linkSelect.appendChild(noneOption);
+      signatureFields.forEach((sf, idx) => {
+        const option = document.createElement('option');
+        option.value = sf.id;
+        option.textContent = sf.label || (idx + 1) + '人目の署名欄';
+        linkSelect.appendChild(option);
+      });
+      linkSelect.value = field.linkedFieldId || '';
+      linkSelect.addEventListener('change', () => {
+        field.linkedFieldId = linkSelect.value || null;
+        // 選択のたびにパネルの警告文も更新したいため、テキスト入力と違って
+        // フォーカスを失う心配がないselectの変更時だけはパネルごと再描画する
+        (callbacks.onLinkChange || callbacks.onChange)();
+      });
+      linkLabel.appendChild(linkSelect);
+      container.appendChild(linkLabel);
+      if (signatureFields.length >= 2 && !field.linkedFieldId) {
+        const warn = document.createElement('p');
+        warn.className = 'side-panel-hint field-link-warning';
+        warn.textContent = '⚠️ 署名欄が複数あります。このままだと印字先が決まらないため、必ず選んでください。';
+        container.appendChild(warn);
+      }
+    }
+
+    // declaration_checkbox(確認チェック欄)だけは、紐付いた署名欄の中でも
+    // 「誰が署名した時に表示するか」をさらに絞れる(例：代理権限確認は家族の時だけ等)
+    if (field.type === 'declaration_checkbox') {
       const roleLabel = document.createElement('label');
       roleLabel.className = 'field-label';
-      roleLabel.textContent = '誰が入力する項目か';
+      roleLabel.textContent = '表示条件（誰が署名した時に確認させるか）';
       const roleSelect = document.createElement('select');
       Object.keys(ROLE_LABELS).concat(['either']).forEach(role => {
         const option = document.createElement('option');

@@ -72,18 +72,21 @@ const PdfWriter = (() => {
     return null;
   }
 
-  // 署名欄と同じ役割の 氏名/住所/続柄/日付/確認チェック欄 を関連項目とみなして値を埋める。
-  // 「どちらでも」欄は実際に選ばれた役割(signerRole)で判定する(署名欄自体のassignedRoleは
-  // 常に'either'のままなので、そこと比較すると本人/家族固定の関連項目を拾えなくなるため)
+  // signatureFieldに明示的に紐付いた(linkedFieldId一致) 氏名/住所/続柄/日付/確認チェック欄 を
+  // 関連項目とみなして値を埋める。以前は役割(本人/家族)だけでマッチングしていたが、
+  // 署名欄が複数あるテンプレートで「本人欄の下に家族の住所が印字される」等の事故が
+  // 実際にあったため、「どの署名欄の項目か」を明示的に紐付ける方式に変更した。
+  // declaration_checkbox(確認チェック欄)だけは、紐付いた上でさらに
+  // 「誰が署名した時に表示するか」(assignedRole)の条件も満たす必要がある
   function relatedTextFields(pages, signatureField, signerRole) {
     const results = [];
     pages.forEach(page => {
       page.fields.forEach(f => {
         if (f.id === signatureField.id) return;
         if (f.type !== 'name' && f.type !== 'relationship' && f.type !== 'date' && f.type !== 'address' && f.type !== 'declaration_checkbox') return;
-        if (f.assignedRole === signerRole || f.assignedRole === 'either') {
-          results.push(f);
-        }
+        if (f.linkedFieldId !== signatureField.id) return;
+        if (f.type === 'declaration_checkbox' && !(f.assignedRole === signerRole || f.assignedRole === 'either')) return;
+        results.push(f);
       });
     });
     return results;
