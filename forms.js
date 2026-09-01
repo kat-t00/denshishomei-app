@@ -93,7 +93,8 @@ const Forms = (() => {
       formatLabel.textContent = '日付の表示形式';
       const formatSelect = document.createElement('select');
       [
-        { value: 'gregorian', text: '西暦（例: 2026/8/1）' },
+        { value: 'gregorian', text: '西暦・数字区切り（例: 2026/8/1）' },
+        { value: 'gregorian_kanji', text: '西暦・漢字区切り（例: 2026年8月1日）' },
         { value: 'reiwa', text: '和暦（例: 令和8年8月1日）' },
       ].forEach(opt => {
         const option = document.createElement('option');

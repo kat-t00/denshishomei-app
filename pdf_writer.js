@@ -27,6 +27,13 @@ const PdfWriter = (() => {
         era: 'long', year: 'numeric', month: 'long', day: 'numeric',
       }).format(date);
     }
+    if (dateFormat === 'gregorian_kanji') {
+      // 西暦のまま「2026年9月1日」のように年月日を漢字区切りにする(スラッシュ表記は
+      // 契約書として事務的すぎるという声への対応。元号は使わないので改元の影響を受けない)
+      return new Intl.DateTimeFormat('ja-JP', {
+        year: 'numeric', month: 'long', day: 'numeric',
+      }).format(date);
+    }
     return date.toLocaleDateString('ja-JP');
   }
 

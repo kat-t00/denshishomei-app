@@ -2099,7 +2099,8 @@ const Forms = (() => {
       formatLabel.textContent = '日付の表示形式';
       const formatSelect = document.createElement('select');
       [
-        { value: 'gregorian', text: '西暦（例: 2026/8/1）' },
+        { value: 'gregorian', text: '西暦・数字区切り（例: 2026/8/1）' },
+        { value: 'gregorian_kanji', text: '西暦・漢字区切り（例: 2026年8月1日）' },
         { value: 'reiwa', text: '和暦（例: 令和8年8月1日）' },
       ].forEach(opt => {
         const option = document.createElement('option');
@@ -2498,6 +2499,13 @@ const PdfWriter = (() => {
     if (dateFormat === 'reiwa') {
       return new Intl.DateTimeFormat('ja-JP-u-ca-japanese', {
         era: 'long', year: 'numeric', month: 'long', day: 'numeric',
+      }).format(date);
+    }
+    if (dateFormat === 'gregorian_kanji') {
+      // 西暦のまま「2026年9月1日」のように年月日を漢字区切りにする(スラッシュ表記は
+      // 契約書として事務的すぎるという声への対応。元号は使わないので改元の影響を受けない)
+      return new Intl.DateTimeFormat('ja-JP', {
+        year: 'numeric', month: 'long', day: 'numeric',
       }).format(date);
     }
     return date.toLocaleDateString('ja-JP');
