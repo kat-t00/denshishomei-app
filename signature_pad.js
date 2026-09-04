@@ -8,6 +8,8 @@ const SignaturePad = (() => {
   function create(canvasEl, onStrokeChange) {
     const ctx = canvasEl.getContext('2d');
     let drawing = false;
+    let activePointerId = null; // 今描画中のポインタだけを追跡し、他の指(手のひら等)の入力を無視する
+    let sawPenInput = false; // 一度でもApple Pencil等のペンを使ったら、以後の指タッチは手のひらとみなす
     let lastX = 0, lastY = 0;
     let pathLength = 0;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -28,8 +30,17 @@ const SignaturePad = (() => {
       return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
     }
 
+    // 署名中に手のひらが画面に触れると、Pointer Eventsは区別なく全部拾ってしまうため、
+    // 何も対策しないと手のひらの接地点に描画位置が飛んでしまう(パームリジェクション対策)。
+    // ①ペンでの入力歴があれば、以後の指タッチは常に無視する
+    // ②描画中は、今描いているポインタ以外の入力(2本目の指等)を無視する
+    // ③ただしペンは常に優先し、指(≒手のひら)が先に触れていても割り込んで描画を奪える
     canvasEl.addEventListener('pointerdown', (evt) => {
+      if (evt.pointerType === 'touch' && sawPenInput) return;
+      if (evt.pointerType !== 'pen' && drawing) return;
+      if (evt.pointerType === 'pen') sawPenInput = true;
       drawing = true;
+      activePointerId = evt.pointerId;
       hasStroke = true;
       canvasEl.setPointerCapture(evt.pointerId);
       const pos = getPos(evt);
@@ -45,7 +56,7 @@ const SignaturePad = (() => {
     });
 
     canvasEl.addEventListener('pointermove', (evt) => {
-      if (!drawing) return;
+      if (!drawing || evt.pointerId !== activePointerId) return;
       const pos = getPos(evt);
       const dx = pos.x - lastX, dy = pos.y - lastY;
       pathLength += Math.sqrt(dx * dx + dy * dy);
@@ -57,8 +68,9 @@ const SignaturePad = (() => {
     });
 
     function endStroke(evt) {
-      if (!drawing) return;
+      if (!drawing || (evt && evt.pointerId !== activePointerId)) return;
       drawing = false;
+      activePointerId = null;
       if (evt && canvasEl.hasPointerCapture(evt.pointerId)) {
         canvasEl.releasePointerCapture(evt.pointerId);
       }
@@ -77,6 +89,7 @@ const SignaturePad = (() => {
     function clear() {
       ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
       drawing = false;
+      activePointerId = null;
       hasStroke = false;
       pathLength = 0;
       minX = Infinity; minY = Infinity; maxX = -Infinity; maxY = -Infinity;
