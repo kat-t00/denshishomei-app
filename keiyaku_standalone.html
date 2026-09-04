@@ -38,6 +38,19 @@ body {
   flex-direction: column;
   height: 100vh;
   height: 100dvh;
+  /* iPad等での長押しが、意図せずテキスト範囲選択やコピーメニュー(コールアウト)を
+     起動してしまう不具合の対策。ネイティブアプリのように「押す・描く」操作だけを
+     受け付けたいので、ページ全体では選択を無効にする(入力欄だけ下で個別に戻す) */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* 実際に文字を打ち込む欄は、今まで通り選択・カーソル移動・コピペができる必要がある */
+input, textarea {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
 }
 
 .hidden {
