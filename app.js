@@ -963,7 +963,7 @@
         session.explanationAudioHashSha256 = await HashUtils.sha256Hex(audioBytes);
       }
       pdfBytes = await PdfWriter.buildSignedPdf(currentSigningTemplate, session);
-      artifacts = await ExportModule.buildSignedArtifacts(currentSigningTemplate, session, pdfBytes, audioBytes);
+      artifacts = await ExportModule.buildSignedArtifacts(currentSigningTemplate, session, pdfBytes, audioBytes, sessionAudioBlob ? sessionAudioBlob.type : null);
       ExportModule.saveArtifacts(artifacts);
     } catch (e) {
       console.error('署名済みPDFの作成に失敗しました', e);
@@ -987,7 +987,8 @@
         await CloudDrive.uploadFile(artifacts.pdfBytes, artifacts.fileNameBase + '.pdf', 'application/pdf');
         await CloudDrive.uploadFile(new TextEncoder().encode(artifacts.auditJson), artifacts.fileNameBase + '_監査記録.json', 'application/json');
         if (artifacts.audioBytes) {
-          await CloudDrive.uploadFile(artifacts.audioBytes, artifacts.fileNameBase + '_説明音声.webm', 'audio/webm');
+          const ext = ExportModule.audioFileExtension(artifacts.audioMimeType);
+          await CloudDrive.uploadFile(artifacts.audioBytes, artifacts.fileNameBase + '_説明音声.' + ext, artifacts.audioMimeType || 'audio/webm');
         }
         showToast('Googleドライブにも保存しました');
       } catch (e) {

@@ -2414,9 +2414,15 @@ const SignaturePad = (() => {
     // ①ペンでの入力歴があれば、以後の指タッチは常に無視する
     // ②描画中は、今描いているポインタ以外の入力(2本目の指等)を無視する
     // ③ただしペンは常に優先し、指(≒手のひら)が先に触れていても割り込んで描画を奪える
+    // iPadはペンが少し静止すると「長押しメニュー」判定のタイマーが走り、
+    // 何もしないと描画中でも定期的にpointercancelを送ってきて線が途切れる。
+    // preventDefault()でこの長押しジェスチャー自体を発生させない
+    canvasEl.addEventListener('contextmenu', (evt) => evt.preventDefault());
+
     canvasEl.addEventListener('pointerdown', (evt) => {
       if (evt.pointerType === 'touch' && sawPenInput) return;
       if (evt.pointerType !== 'pen' && drawing) return;
+      evt.preventDefault();
       if (evt.pointerType === 'pen') sawPenInput = true;
       drawing = true;
       activePointerId = evt.pointerId;
@@ -2436,6 +2442,7 @@ const SignaturePad = (() => {
 
     canvasEl.addEventListener('pointermove', (evt) => {
       if (!drawing || evt.pointerId !== activePointerId) return;
+      evt.preventDefault();
       const pos = getPos(evt);
       const dx = pos.x - lastX, dy = pos.y - lastY;
       pathLength += Math.sqrt(dx * dx + dy * dy);
@@ -2897,14 +2904,25 @@ const ExportModule = (() => {
     return (text || '').replace(/[\\/:*?"<>|]/g, '').trim();
   }
 
+  // 録音のMIMEタイプ(ブラウザが実際に使ったコーデック)から、再生アプリが正しく認識できる
+  // 拡張子を決める。iPadのSafariはwebmで録音できず実際はaudio/mp4(m4a相当)になるため、
+  // 拡張子を決め打ちすると中身と不一致になり再生できないファイルが出来上がってしまう
+  function audioFileExtension(mimeType) {
+    if (!mimeType) return 'webm';
+    if (mimeType.includes('mp4')) return 'm4a';
+    if (mimeType.includes('ogg')) return 'ogg';
+    return 'webm';
+  }
+
   // audioBytesは任意(重要事項説明の録音を添付した場合のみ)。ハッシュは既にsession側に
   // 記録済み(finalizeSigning側でPDF生成前に計算しておく必要があるため、ここでは計算しない)
-  async function buildSignedArtifacts(template, session, finalPdfBytes, audioBytes) {
+  async function buildSignedArtifacts(template, session, finalPdfBytes, audioBytes, audioMimeType) {
     const auditRecord = await Audit.buildAuditRecord(session, finalPdfBytes);
     const recipientPart = sanitizeForFileName(session.recipientName);
     return {
       pdfBytes: finalPdfBytes,
       audioBytes: audioBytes || null,
+      audioMimeType: audioMimeType || null,
       auditJson: JSON.stringify(auditRecord, null, 2),
       hash: auditRecord.finalPdfHashSha256,
       fileNameBase: (recipientPart ? recipientPart + '_' : '')
@@ -2930,7 +2948,8 @@ const ExportModule = (() => {
     downloadBlob(artifacts.pdfBytes, artifacts.fileNameBase + '.pdf', 'application/pdf');
     downloadBlob(new TextEncoder().encode(artifacts.auditJson), artifacts.fileNameBase + '_監査記録.json', 'application/json');
     if (artifacts.audioBytes) {
-      downloadBlob(artifacts.audioBytes, artifacts.fileNameBase + '_説明音声.webm', 'audio/webm');
+      const ext = audioFileExtension(artifacts.audioMimeType);
+      downloadBlob(artifacts.audioBytes, artifacts.fileNameBase + '_説明音声.' + ext, artifacts.audioMimeType || 'audio/webm');
     }
   }
 
@@ -2957,7 +2976,7 @@ const ExportModule = (() => {
     reader.readAsText(file);
   }
 
-  return { buildSignedArtifacts, saveArtifacts, downloadSink, downloadBlob, exportTemplatesBackup, importTemplatesBackup };
+  return { buildSignedArtifacts, saveArtifacts, downloadSink, downloadBlob, exportTemplatesBackup, importTemplatesBackup, audioFileExtension };
 })();
 
 </script>
@@ -4072,7 +4091,7 @@ const VoidFlow = (() => {
         session.explanationAudioHashSha256 = await HashUtils.sha256Hex(audioBytes);
       }
       pdfBytes = await PdfWriter.buildSignedPdf(currentSigningTemplate, session);
-      artifacts = await ExportModule.buildSignedArtifacts(currentSigningTemplate, session, pdfBytes, audioBytes);
+      artifacts = await ExportModule.buildSignedArtifacts(currentSigningTemplate, session, pdfBytes, audioBytes, sessionAudioBlob ? sessionAudioBlob.type : null);
       ExportModule.saveArtifacts(artifacts);
     } catch (e) {
       console.error('署名済みPDFの作成に失敗しました', e);
@@ -4096,7 +4115,8 @@ const VoidFlow = (() => {
         await CloudDrive.uploadFile(artifacts.pdfBytes, artifacts.fileNameBase + '.pdf', 'application/pdf');
         await CloudDrive.uploadFile(new TextEncoder().encode(artifacts.auditJson), artifacts.fileNameBase + '_監査記録.json', 'application/json');
         if (artifacts.audioBytes) {
-          await CloudDrive.uploadFile(artifacts.audioBytes, artifacts.fileNameBase + '_説明音声.webm', 'audio/webm');
+          const ext = ExportModule.audioFileExtension(artifacts.audioMimeType);
+          await CloudDrive.uploadFile(artifacts.audioBytes, artifacts.fileNameBase + '_説明音声.' + ext, artifacts.audioMimeType || 'audio/webm');
         }
         showToast('Googleドライブにも保存しました');
       } catch (e) {

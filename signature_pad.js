@@ -35,9 +35,15 @@ const SignaturePad = (() => {
     // ①ペンでの入力歴があれば、以後の指タッチは常に無視する
     // ②描画中は、今描いているポインタ以外の入力(2本目の指等)を無視する
     // ③ただしペンは常に優先し、指(≒手のひら)が先に触れていても割り込んで描画を奪える
+    // iPadはペンが少し静止すると「長押しメニュー」判定のタイマーが走り、
+    // 何もしないと描画中でも定期的にpointercancelを送ってきて線が途切れる。
+    // preventDefault()でこの長押しジェスチャー自体を発生させない
+    canvasEl.addEventListener('contextmenu', (evt) => evt.preventDefault());
+
     canvasEl.addEventListener('pointerdown', (evt) => {
       if (evt.pointerType === 'touch' && sawPenInput) return;
       if (evt.pointerType !== 'pen' && drawing) return;
+      evt.preventDefault();
       if (evt.pointerType === 'pen') sawPenInput = true;
       drawing = true;
       activePointerId = evt.pointerId;
@@ -57,6 +63,7 @@ const SignaturePad = (() => {
 
     canvasEl.addEventListener('pointermove', (evt) => {
       if (!drawing || evt.pointerId !== activePointerId) return;
+      evt.preventDefault();
       const pos = getPos(evt);
       const dx = pos.x - lastX, dy = pos.y - lastY;
       pathLength += Math.sqrt(dx * dx + dy * dy);

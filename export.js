@@ -8,14 +8,25 @@ const ExportModule = (() => {
     return (text || '').replace(/[\\/:*?"<>|]/g, '').trim();
   }
 
+  // 録音のMIMEタイプ(ブラウザが実際に使ったコーデック)から、再生アプリが正しく認識できる
+  // 拡張子を決める。iPadのSafariはwebmで録音できず実際はaudio/mp4(m4a相当)になるため、
+  // 拡張子を決め打ちすると中身と不一致になり再生できないファイルが出来上がってしまう
+  function audioFileExtension(mimeType) {
+    if (!mimeType) return 'webm';
+    if (mimeType.includes('mp4')) return 'm4a';
+    if (mimeType.includes('ogg')) return 'ogg';
+    return 'webm';
+  }
+
   // audioBytesは任意(重要事項説明の録音を添付した場合のみ)。ハッシュは既にsession側に
   // 記録済み(finalizeSigning側でPDF生成前に計算しておく必要があるため、ここでは計算しない)
-  async function buildSignedArtifacts(template, session, finalPdfBytes, audioBytes) {
+  async function buildSignedArtifacts(template, session, finalPdfBytes, audioBytes, audioMimeType) {
     const auditRecord = await Audit.buildAuditRecord(session, finalPdfBytes);
     const recipientPart = sanitizeForFileName(session.recipientName);
     return {
       pdfBytes: finalPdfBytes,
       audioBytes: audioBytes || null,
+      audioMimeType: audioMimeType || null,
       auditJson: JSON.stringify(auditRecord, null, 2),
       hash: auditRecord.finalPdfHashSha256,
       fileNameBase: (recipientPart ? recipientPart + '_' : '')
@@ -41,7 +52,8 @@ const ExportModule = (() => {
     downloadBlob(artifacts.pdfBytes, artifacts.fileNameBase + '.pdf', 'application/pdf');
     downloadBlob(new TextEncoder().encode(artifacts.auditJson), artifacts.fileNameBase + '_監査記録.json', 'application/json');
     if (artifacts.audioBytes) {
-      downloadBlob(artifacts.audioBytes, artifacts.fileNameBase + '_説明音声.webm', 'audio/webm');
+      const ext = audioFileExtension(artifacts.audioMimeType);
+      downloadBlob(artifacts.audioBytes, artifacts.fileNameBase + '_説明音声.' + ext, artifacts.audioMimeType || 'audio/webm');
     }
   }
 
@@ -68,5 +80,5 @@ const ExportModule = (() => {
     reader.readAsText(file);
   }
 
-  return { buildSignedArtifacts, saveArtifacts, downloadSink, downloadBlob, exportTemplatesBackup, importTemplatesBackup };
+  return { buildSignedArtifacts, saveArtifacts, downloadSink, downloadBlob, exportTemplatesBackup, importTemplatesBackup, audioFileExtension };
 })();
