@@ -134,20 +134,24 @@
   <script src="lib/fontkit.umd.min.js"></script>
   <script src="lib/fonts/notosansjp_base64.js"></script>
 
-  <script src="models.js"></script>
-  <script src="pdf_utils.js"></script>
-  <script src="hash_utils.js"></script>
-  <script src="template_store.js"></script>
-  <script src="field_editor.js"></script>
-  <script src="forms.js"></script>
-  <script src="signature_pad.js"></script>
-  <script src="audio_recorder.js"></script>
-  <script src="signing_flow.js"></script>
-  <script src="pdf_writer.js"></script>
-  <script src="audit.js"></script>
-  <script src="export.js"></script>
-  <script src="cloud_drive.js"></script>
-  <script src="void_flow.js"></script>
-  <script src="app.js"></script>
+  <!-- 自作JSは末尾に?v=コミットハッシュを付け、更新するたびに変わるようにしてある。
+       これが無いとGitHub Pages更新後もiPad Safariが古いJSをキャッシュしたまま読み込み、
+       直したはずのバグが再現し続けるという事故が起きるため(実際に発生した)。
+       コードを直してpushするたびに、このハッシュも最新のcommitに書き換えること -->
+  <script src="models.js?v=a1e311c"></script>
+  <script src="pdf_utils.js?v=a1e311c"></script>
+  <script src="hash_utils.js?v=a1e311c"></script>
+  <script src="template_store.js?v=a1e311c"></script>
+  <script src="field_editor.js?v=a1e311c"></script>
+  <script src="forms.js?v=a1e311c"></script>
+  <script src="signature_pad.js?v=a1e311c"></script>
+  <script src="audio_recorder.js?v=a1e311c"></script>
+  <script src="signing_flow.js?v=a1e311c"></script>
+  <script src="pdf_writer.js?v=a1e311c"></script>
+  <script src="audit.js?v=a1e311c"></script>
+  <script src="export.js?v=a1e311c"></script>
+  <script src="cloud_drive.js?v=a1e311c"></script>
+  <script src="void_flow.js?v=a1e311c"></script>
+  <script src="app.js?v=a1e311c"></script>
 </body>
 </html>
