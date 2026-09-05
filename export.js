@@ -35,7 +35,11 @@ const ExportModule = (() => {
   }
 
   function downloadBlob(bytes, fileName, mimeType) {
-    const blob = new Blob([bytes], { type: mimeType });
+    // iOS Safariは中身がPDF等の「その場で開ける」形式だと、download属性を無視して
+    // 内蔵ビューアーで開いてしまいダウンロードされない。Blob自体を汎用形式にすり替えて
+    // 「開けないファイル」と誤認させ、確実にダウンロードさせる(ファイル名の拡張子は
+    // 正しいものを渡すので、保存後は普通にPDFとして開ける)
+    const blob = new Blob([bytes], { type: 'application/octet-stream' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

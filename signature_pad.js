@@ -40,6 +40,9 @@ const SignaturePad = (() => {
     // preventDefault()でこの長押しジェスチャー自体を発生させない
     canvasEl.addEventListener('contextmenu', (evt) => evt.preventDefault());
 
+    // iPadのSafariはsetPointerCapture/releasePointerCaptureの解放が内部的に不完全で、
+    // 1回おきに次のストロークのpointer移動イベントを取りこぼす既知の不具合があるため、
+    // キャプチャは使わず、move/up/cancelはwindow側で拾う(canvas外に指が出ても追従できる利点もある)
     canvasEl.addEventListener('pointerdown', (evt) => {
       if (evt.pointerType === 'touch' && sawPenInput) return;
       if (evt.pointerType !== 'pen' && drawing) return;
@@ -48,7 +51,6 @@ const SignaturePad = (() => {
       drawing = true;
       activePointerId = evt.pointerId;
       hasStroke = true;
-      canvasEl.setPointerCapture(evt.pointerId);
       const pos = getPos(evt);
       lastX = pos.x; lastY = pos.y;
       updateBounds(pos.x, pos.y);
@@ -61,7 +63,7 @@ const SignaturePad = (() => {
       ctx.moveTo(pos.x, pos.y);
     });
 
-    canvasEl.addEventListener('pointermove', (evt) => {
+    function handleMove(evt) {
       if (!drawing || evt.pointerId !== activePointerId) return;
       evt.preventDefault();
       const pos = getPos(evt);
@@ -72,19 +74,25 @@ const SignaturePad = (() => {
       ctx.stroke();
       lastX = pos.x; lastY = pos.y;
       if (onStrokeChange) onStrokeChange(isValid());
-    });
+    }
+    window.addEventListener('pointermove', handleMove, { passive: false });
 
     function endStroke(evt) {
       if (!drawing || (evt && evt.pointerId !== activePointerId)) return;
       drawing = false;
       activePointerId = null;
-      if (evt && canvasEl.hasPointerCapture(evt.pointerId)) {
-        canvasEl.releasePointerCapture(evt.pointerId);
-      }
       if (onStrokeChange) onStrokeChange(isValid());
     }
-    canvasEl.addEventListener('pointerup', endStroke);
-    canvasEl.addEventListener('pointercancel', endStroke);
+    window.addEventListener('pointerup', endStroke);
+    window.addEventListener('pointercancel', endStroke);
+
+    // 署名モーダルを閉じる時に呼ぶ。windowに貼ったリスナーは自動では消えないため、
+    // 呼び忘れると署名のたびにリスナーが積み重なっていく
+    function destroy() {
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', endStroke);
+      window.removeEventListener('pointercancel', endStroke);
+    }
 
     function isValid() {
       if (!hasStroke) return false;
@@ -120,7 +128,7 @@ const SignaturePad = (() => {
       return cropCanvas.toDataURL('image/png');
     }
 
-    return { clear, isValid, toDataUrl };
+    return { clear, isValid, toDataUrl, destroy };
   }
 
   return { create };

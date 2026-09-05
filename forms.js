@@ -167,6 +167,26 @@ const Forms = (() => {
       container.appendChild(fontSizeLabel);
     }
 
+    // 署名欄は活字ではなく手書き画像なので、実際に描かれた署名の大きさによっては
+    // 枠に収めても(object-fit:contain)なお小さく見えることがある。PDFによって
+    // 枠のサイズ感がバラバラなため、テンプレートごとに表示サイズを調整できるようにする
+    if (field.type === 'signature') {
+      const scaleLabel = document.createElement('label');
+      scaleLabel.className = 'field-label';
+      scaleLabel.textContent = '署名の表示サイズ（%、枠に収めた後にさらに拡大縮小）';
+      const scaleInput = document.createElement('input');
+      scaleInput.type = 'number';
+      scaleInput.min = '50';
+      scaleInput.max = '200';
+      scaleInput.value = field.signatureScale || 100;
+      scaleInput.addEventListener('input', () => {
+        field.signatureScale = parseInt(scaleInput.value, 10) || 100;
+        callbacks.onChange();
+      });
+      scaleLabel.appendChild(scaleInput);
+      container.appendChild(scaleLabel);
+    }
+
     if (field.type === 'signature') {
       const orderLabel = document.createElement('label');
       orderLabel.className = 'field-label';

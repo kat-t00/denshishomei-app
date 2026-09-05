@@ -55,7 +55,11 @@ const PdfWriter = (() => {
     // 署名パッド(canvas)の縦横比は枠の縦横比と一致しないため、枠に強制フィットさせると
     // 手書きの線が潰れたり伸びたりする。縦横比を保ったまま枠に収め(object-fit:contain)、
     // 余った分は中央寄せする。
-    const scale = Math.min(field.width / pngImage.width, field.height / pngImage.height);
+    // 実際の署名(特に高齢者)は枠いっぱいに書かれるとは限らず、上記のcontain後もなお
+    // 小さく見えることがあるため、テンプレート作成時に指定した表示サイズ(%)をさらに掛ける。
+    // 100%を超えると枠を意図的にはみ出して大きく表示する(中央寄せなので見た目は崩れない)
+    const sizePercent = field.signatureScale || 100;
+    const scale = Math.min(field.width / pngImage.width, field.height / pngImage.height) * (sizePercent / 100);
     const drawWidth = pngImage.width * scale;
     const drawHeight = pngImage.height * scale;
     const x = field.x + (field.width - drawWidth) / 2;
