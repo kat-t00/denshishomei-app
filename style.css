@@ -874,6 +874,13 @@ input, textarea {
   animation: signing-field-pulse 1.4s ease-in-out infinite;
 }
 
+/* 署名モーダルを開いている間、裏に隠れたハイライト枠のパルスアニメーションを止める。
+   動かしたままだとbox-shadowの再計算が毎フレーム走り続け、非力な端末では
+   Apple Pencilの描画イベント処理と競合して入力が飛ぶ・引っかかる原因になるため */
+body.modal-open .signing-field-highlight {
+  animation-play-state: paused;
+}
+
 @keyframes signing-field-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(232, 163, 61, 0.5); }
   50% { box-shadow: 0 0 0 8px rgba(232, 163, 61, 0); }

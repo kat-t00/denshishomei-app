@@ -48,13 +48,22 @@ const ExportModule = (() => {
 
   // MVPのデフォルトの保存先: 端末へのダウンロード。
   // Phase 2ではここにcloudUploadSink等を追加してsinkFnとして渡せばよい。
+  //
+  // iPad(iOS Safari)は、複数のダウンロードを間を空けずに連続発火させると
+  // 最後の1つしか実行されない制約があるため(Mac版Chromeでは問題なし)、
+  // 1つずつ間隔を空けて発火させる
   function downloadSink(artifacts) {
-    downloadBlob(artifacts.pdfBytes, artifacts.fileNameBase + '.pdf', 'application/pdf');
-    downloadBlob(new TextEncoder().encode(artifacts.auditJson), artifacts.fileNameBase + '_監査記録.json', 'application/json');
+    const files = [
+      [artifacts.pdfBytes, artifacts.fileNameBase + '.pdf', 'application/pdf'],
+      [new TextEncoder().encode(artifacts.auditJson), artifacts.fileNameBase + '_監査記録.json', 'application/json'],
+    ];
     if (artifacts.audioBytes) {
       const ext = audioFileExtension(artifacts.audioMimeType);
-      downloadBlob(artifacts.audioBytes, artifacts.fileNameBase + '_説明音声.' + ext, artifacts.audioMimeType || 'audio/webm');
+      files.push([artifacts.audioBytes, artifacts.fileNameBase + '_説明音声.' + ext, artifacts.audioMimeType || 'audio/webm']);
     }
+    files.forEach(([bytes, name, mimeType], i) => {
+      setTimeout(() => downloadBlob(bytes, name, mimeType), i * 600);
+    });
   }
 
   function saveArtifacts(artifacts, sinkFn) {

@@ -716,7 +716,10 @@
     padWrap.appendChild(canvas);
     box.appendChild(padWrap);
 
-    function closeModal() { backdrop.remove(); }
+    // 開いている間、裏で回り続ける署名欄のパルスアニメーションを止める(style.css参照。
+    // 非力な端末でApple Pencilの描画イベント処理と競合するのを避けるため)
+    document.body.classList.add('modal-open');
+    function closeModal() { backdrop.remove(); document.body.classList.remove('modal-open'); }
 
     let isExpanded = false;
     expandBtn.addEventListener('click', () => {
