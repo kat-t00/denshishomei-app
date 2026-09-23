@@ -1194,6 +1194,11 @@ body.modal-open .signing-field-highlight {
               <option value="legacy" hidden>従来の設定を維持</option>
             </select>
           </label>
+          <label id="scribe-additional-setting" class="checkbox-row">
+            <input type="checkbox" id="template-require-additional-for-scribe" checked />
+            本人名を家族が代筆する場合は、続けて家族本人の署名も必須にする
+          </label>
+          <p id="scribe-additional-hint" class="side-panel-hint">「必要な場合だけ追加の人も署名」を選んだ書式で使います。本人が自署した場合は、追加署名を省略できます。</p>
           <p class="side-panel-hint">複数人の場合、署名順が先頭の欄が本人またはご家族用です。それ以降の欄は追加署名用です。各署名欄に「家族の同意」など目的のラベルを付けてください。</p>
           <label class="field-label">書式名（必須）
             <input type="text" id="template-name-input" placeholder="例：居宅介護支援 重要事項説明書" />
@@ -1423,6 +1428,7 @@ const Models = (() => {
       versionLabel: '',
       name: '',
       signingMode: 'single',
+      requireAdditionalForScribe: true,
       createdAt: now,
       updatedAt: now,
       pdfBase64: '',
@@ -1503,6 +1509,7 @@ const Models = (() => {
     if (!signatures.length) errors.push('署名欄を1つ以上配置してください。');
     if (template.signingMode === 'single' && signatures.length !== 1) errors.push('1人で完結する書式は署名欄を1つにしてください。複数人が署名する書式は署名方法を変更してください。');
     if (['optional','all'].includes(template.signingMode) && signatures.length < 2) errors.push('追加の署名欄を配置してください。1人で完結する書式なら署名方法を変更してください。');
+    if (template.requireAdditionalForScribe && template.signingMode === 'optional' && signatures.length !== 2) errors.push('代筆時の家族署名を必須にする書式は、本人用と家族用の署名欄を1つずつ配置してください。');
     if (['optional','all'].includes(template.signingMode) && new Set(signatures.map(field => field.signOrder)).size !== signatures.length) errors.push('署名する順番が重複しています。本人または代理人の欄を先頭にし、異なる順番を指定してください。');
     const ids = new Set();
     pages.forEach((page, index) => (page.fields || []).forEach(field => {
@@ -1798,6 +1805,7 @@ const TemplateStore = (() => {
   function normalizeTemplate(t) {
     const normalized = Object.assign({}, t, {
       signingMode: t.signingMode || 'legacy',
+      requireAdditionalForScribe: !!t.requireAdditionalForScribe,
       version: typeof t.version === 'number' ? t.version : 1,
       familyId: t.familyId || t.id,
       supersededBy: t.supersededBy || null,
@@ -2887,6 +2895,10 @@ const SigningFlow = (() => {
       if (!recipientName || !recipientName.trim()) throw new Error('利用者氏名を入力してください。');
       if (!plan || !['recipient','family'].includes(plan.primaryRole)) throw new Error('署名する方を選んでください。');
       if (mode === 'optional' && typeof plan.includeAdditional !== 'boolean') throw new Error('追加署名の要否を選んでください。');
+      if (mode === 'optional' && template.requireAdditionalForScribe &&
+          plan.primaryRole === 'family' && plan.primaryCapacity === 'scribe' && !plan.includeAdditional) {
+        throw new Error('この書式では、本人名を家族が代筆した後に家族本人の署名も必要です。');
+      }
     }
     session = Models.createSigningSession({
       templateId: template.id,
@@ -3916,6 +3928,12 @@ const VoidFlow = (() => {
     el.pageIndicator.textContent = (FieldEditor.getCurrentPageIndex() + 1) + ' / ' + FieldEditor.getPageCount();
   }
 
+  function updateScribeAdditionalSetting() {
+    const visible = q('template-signing-mode').value === 'optional';
+    q('scribe-additional-setting').style.display = visible ? '' : 'none';
+    q('scribe-additional-hint').style.display = visible ? '' : 'none';
+  }
+
   async function openTemplateForEditing(id) {
     const t = TemplateStore.get(id);
     if (!t) return;
@@ -3924,6 +3942,8 @@ const VoidFlow = (() => {
     el.templateNameInput.value = t.name;
     el.templateVersionLabelInput.value = t.versionLabel || '';
     q('template-signing-mode').value = t.signingMode || 'legacy';
+    q('template-require-additional-for-scribe').checked = !!t.requireAdditionalForScribe;
+    updateScribeAdditionalSetting();
     Forms.renderFieldEditPanel(el.fieldEditPanel, null);
     showScreen('template-editor');
     showToast('PDFを読み込み中...', 15000);
@@ -3943,6 +3963,8 @@ const VoidFlow = (() => {
     el.templateNameInput.value = '';
     el.templateVersionLabelInput.value = '';
     q('template-signing-mode').value = 'single';
+    q('template-require-additional-for-scribe').checked = true;
+    updateScribeAdditionalSetting();
     el.pdfFileInput.value = '';
     Forms.renderFieldEditPanel(el.fieldEditPanel, null);
   }
@@ -3955,7 +3977,8 @@ const VoidFlow = (() => {
     const versionLabel = el.templateVersionLabelInput.value.trim();
 
     const signingMode = q('template-signing-mode').value;
-    const errors = Models.validateTemplate({ pages, signingMode });
+    const requireAdditionalForScribe = signingMode === 'optional' && q('template-require-additional-for-scribe').checked;
+    const errors = Models.validateTemplate({ pages, signingMode, requireAdditionalForScribe });
     if (errors.length) { alert('保存前に修正してください。\n' + errors.join('\n')); return; }
 
     // localStorageの保存容量超過(QuotaExceededError等)はここで必ず捕まえる。
@@ -3965,12 +3988,12 @@ const VoidFlow = (() => {
     try {
       if (currentEditingTemplateId) {
         const existing = TemplateStore.get(currentEditingTemplateId);
-        const updated = Object.assign({}, existing, { name, versionLabel, pdfBase64: currentPdfBase64, pages, signingMode });
+        const updated = Object.assign({}, existing, { name, versionLabel, pdfBase64: currentPdfBase64, pages, signingMode, requireAdditionalForScribe });
         const saved = TemplateStore.saveEdit(updated);
         currentEditingTemplateId = saved.id;
         versionedFrom = saved.versionedFrom || null;
       } else {
-        const created = Models.createTemplate({ name, versionLabel, pdfBase64: currentPdfBase64, pages, signingMode });
+        const created = Models.createTemplate({ name, versionLabel, pdfBase64: currentPdfBase64, pages, signingMode, requireAdditionalForScribe });
         TemplateStore.saveNew(created);
         currentEditingTemplateId = created.id;
       }
@@ -3997,6 +4020,7 @@ const VoidFlow = (() => {
       // 見本生成は本番の署名セッション・テンプレート保存を変更しない。
       const template = Models.createTemplate({ name: '印字見本', pdfBase64: currentPdfBase64,
         signingMode: q('template-signing-mode').value,
+        requireAdditionalForScribe: q('template-signing-mode').value === 'optional' && q('template-require-additional-for-scribe').checked,
         pages: JSON.parse(JSON.stringify(FieldEditor.getPages())) });
       const name = q('preview-name').value.trim() || '山田 太郎';
       const role = q('preview-role').value;
@@ -4090,10 +4114,15 @@ const VoidFlow = (() => {
         summary.textContent = mode === 'single' ? 'この書式は1人の署名で完了します。本人が署名する場合、家族の署名は求めません。'
           : '署名の順番：' + currentSigningTemplate.pages.flatMap(page => page.fields).filter(field => field.type === 'signature').sort((a,b) => a.signOrder-b.signOrder).map((field,index) => (index + 1) + '. ' + (field.label || (index === 0 ? '本人または家族' : '追加署名'))).join(' → ');
         card.append(summary);
+        let additionalLabel = null;
         if (mode === 'optional') {
-          const additionalLabel = document.createElement('label'); additionalLabel.className = 'signing-field-label';
+          additionalLabel = document.createElement('label'); additionalLabel.className = 'signing-field-label';
           additionalLabel.append(document.createTextNode('書面の目的に照らして、追加署名は必要ですか'),additionalSelect); card.append(additionalLabel);
         }
+        const scribeAdditionalNote = document.createElement('p');
+        scribeAdditionalNote.className = 'side-panel-hint';
+        scribeAdditionalNote.textContent = 'この書式では、本人名を家族が代筆した場合、続けて同じご家族の署名も必要です。';
+        card.append(scribeAdditionalNote);
         const capacityLabel = document.createElement('label'); capacityLabel.id = 'signing-family-capacity-label'; capacityLabel.className = 'signing-field-label';
         capacityLabel.append(document.createTextNode('ご家族が書く場合の方法'));
         const capacitySelect = document.createElement('select'); capacitySelect.id = 'signing-family-capacity';
@@ -4101,20 +4130,31 @@ const VoidFlow = (() => {
           const option=document.createElement('option');option.value=value;option.textContent=text;capacitySelect.append(option);
         });
         capacityLabel.appendChild(capacitySelect); card.append(capacityLabel);
+        function scribeAdditionalRequired() {
+          return mode === 'optional' && !!currentSigningTemplate.requireAdditionalForScribe &&
+            roleSelect.value === 'family' && capacitySelect.value === 'scribe';
+        }
         function updateFamilyCapacityVisibility(){
           capacityLabel.style.display=roleSelect.value==='family'?'':'none';
+          const required = scribeAdditionalRequired();
+          if (additionalLabel) additionalLabel.style.display = required ? 'none' : '';
+          scribeAdditionalNote.style.display = required ? '' : 'none';
           if (recipientAddressHint) recipientAddressHint.textContent = roleSelect.value === 'family'
             ? '本人の住所として印字します。ご家族の住所が同じなら、署名時にコピーできます。'
             : '本人の住所として印字します。署名者住所欄がある場合は同じ住所を引き継ぎ、本人が訂正できます。';
         }
-        roleSelect.addEventListener('change',updateFamilyCapacityVisibility); updateFamilyCapacityVisibility();
+        roleSelect.addEventListener('change',updateFamilyCapacityVisibility);
+        capacitySelect.addEventListener('change',updateFamilyCapacityVisibility);
+        updateFamilyCapacityVisibility();
         const note = document.createElement('p'); note.className = 'side-panel-hint';
         note.textContent = 'この画面は事業者側が事前確認します。アプリが契約能力や代理権を判定するものではありません。'; card.append(note);
       }
       const nextBtn = bigButton('次へ進む', () => {
         const plan = { recipientAddress: recipientAddressInput ? recipientAddressInput.value.trim() : '', primaryRole: roleSelect.value,
           primaryCapacity: mode !== 'legacy' && roleSelect.value === 'family' ? q('signing-family-capacity').value : undefined,
-          includeAdditional: mode === 'all' ? true : mode === 'optional' && !additionalSelect.value ? undefined : additionalSelect.value === 'yes' };
+          includeAdditional: mode === 'all' || (mode === 'optional' && currentSigningTemplate.requireAdditionalForScribe &&
+            roleSelect.value === 'family' && q('signing-family-capacity').value === 'scribe') ? true
+            : mode === 'optional' && !additionalSelect.value ? undefined : additionalSelect.value === 'yes' };
         try { SigningFlow.startSession(currentSigningTemplate, input.value.trim(), signingUiState.resignOf, plan); }
         catch(e) { alert(e.message); return; }
         if (SigningFlow.isQueueComplete()) {
@@ -5183,7 +5223,11 @@ const VoidFlow = (() => {
     q('btn-fit-view').addEventListener('click', () => FieldEditor.fitToView(q('pdf-stage-wrap')));
     q('btn-save-template').addEventListener('click', saveCurrentTemplate);
     q('btn-preview-template').addEventListener('click', previewTemplate);
-    q('template-signing-mode').addEventListener('change', () => Forms.renderFieldEditPanel(el.fieldEditPanel, null));
+    q('template-signing-mode').addEventListener('change', () => {
+      updateScribeAdditionalSetting();
+      Forms.renderFieldEditPanel(el.fieldEditPanel, null);
+    });
+    updateScribeAdditionalSetting();
 
     q('btn-export-templates').addEventListener('click', openBackupSelectionModal);
     q('btn-import-templates').addEventListener('click', () => q('import-templates-input').click());
