@@ -275,7 +275,7 @@ input, textarea {
 
 .fixture-palette {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 6px;
 }
 
@@ -288,6 +288,19 @@ input, textarea {
   font-size: 12px;
   font-weight: bold;
   cursor: pointer;
+  text-align: left;
+}
+
+.palette-button-label,
+.palette-button-hint {
+  display: block;
+}
+
+.palette-button-hint {
+  margin-top: 3px;
+  font-size: 0.78rem;
+  font-weight: normal;
+  line-height: 1.35;
 }
 
 .palette-button:hover {
@@ -1169,6 +1182,7 @@ body.modal-open .signing-field-highlight {
           <input type="file" id="pdf-file-input" accept="application/pdf" />
           <h2>✍️ 項目を配置</h2>
           <p class="side-panel-hint">ボタンを押してから、PDF上をドラッグして四角を描くと項目が追加されます。</p>
+          <p class="side-panel-hint">まず「手書き署名」を配置。PDFに署名とは別の氏名欄がある場合だけ、氏名（活字）を追加します。署名が氏名欄を兼ねる書式なら追加不要です。</p>
           <div id="field-palette" class="fixture-palette"></div>
           <div id="field-edit-panel" class="edit-popup"></div>
           <h2>💾 テンプレートとして保存</h2>
@@ -2301,11 +2315,11 @@ const FieldEditor = (() => {
 // pure DOM操作のみ、テンプレート化エンジンは使わない(house styleに合わせる)。
 const Forms = (() => {
   const FIELD_TYPE_OPTIONS = [
-    { type: 'signature', label: '✍️ 署名欄', hint: 'タップすると署名パッドが開き、手書きの署名(画像)が入ります。' },
+    { type: 'signature', label: '✍️ 手書き署名', hint: 'PDFの署名する場所に配置します。書く人は契約時に選びます。' },
     { type: 'date', label: '📅 日付欄', hint: '署名した日付が自動で印字されます(西暦/和暦を選択可)。' },
-    { type: 'recipient_name', label: '👤 利用者氏名欄', hint: 'サービスを受ける利用者の氏名です。代理人が署名しても変わりません。' },
+    { type: 'recipient_name', label: '👤 利用者氏名（活字）', hint: 'PDFに署名とは別の氏名欄がある時だけ配置。家族が署名しても利用者本人の名前を印字します。' },
     { type: 'recipient_address', label: '🏠 利用者住所欄', hint: '契約当事者である利用者本人の住所です。家族が署名・代筆しても変わりません。' },
-    { type: 'name', label: '🈸 署名者氏名欄', hint: '実際に署名した人の氏名を活字で印字します。書面に別の氏名欄がある場合だけ配置してください。' },
+    { type: 'name', label: '🈸 署名者氏名（活字）', hint: 'PDFに署名とは別の氏名欄がある時だけ配置。実際に署名した人の名前を印字します。' },
     { type: 'address', label: '🏠 署名者住所欄', hint: '実際に署名・代筆した人の住所が、活字で印字されます。' },
     { type: 'relationship', label: '👪 続柄欄', hint: 'ご家族が記入する場合、入力された続柄(例：長男)が印字されます。' },
     { type: 'declaration_checkbox', label: '☑️ 確認チェック欄', hint: '署名時に確認した内容を示します。' },
@@ -2317,7 +2331,13 @@ const Forms = (() => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'palette-button';
-      btn.textContent = opt.label;
+      const label = document.createElement('span');
+      label.className = 'palette-button-label';
+      label.textContent = opt.label;
+      const hint = document.createElement('span');
+      hint.className = 'palette-button-hint';
+      hint.textContent = opt.hint;
+      btn.append(label, hint);
       btn.title = opt.hint;
       btn.addEventListener('click', () => {
         container.querySelectorAll('.palette-button').forEach(b => b.classList.remove('is-armed'));
@@ -2345,6 +2365,13 @@ const Forms = (() => {
     const title = document.createElement('h3');
     title.textContent = '項目の設定';
     container.appendChild(title);
+    const typeHint = FIELD_TYPE_OPTIONS.find(opt => opt.type === field.type);
+    if (typeHint) {
+      const description = document.createElement('p');
+      description.className = 'side-panel-hint';
+      description.textContent = typeHint.hint;
+      container.appendChild(description);
+    }
 
     // 署名欄は役割をテンプレート側で固定しない(署名時にその場で本人/家族を選んでもらう設計のため)。
     // 氏名欄・住所欄などの付随項目は、代わりに「どの署名欄の項目か」を明示的に紐付ける
