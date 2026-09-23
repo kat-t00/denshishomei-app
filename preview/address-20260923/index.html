@@ -2960,6 +2960,12 @@ const SigningFlow = (() => {
     if (!['recipient','family','additional'].includes(role)) throw new Error('署名する立場を選択してください');
     if (getPlannedRole() && role !== getPlannedRole()) throw new Error('署名前に確認した立場と一致しません。');
     if (!input.typedName || !input.typedName.trim()) throw new Error('氏名が入力されていません');
+    const previousSigner = session.signers[session.signers.length - 1];
+    if (currentTemplate.requireAdditionalForScribe && session.signingMode === 'optional' &&
+        previousSigner && previousSigner.signingCapacity === 'scribe' &&
+        input.typedName.trim() !== previousSigner.typedName) {
+      throw new Error('先ほど代筆したご家族本人が、続けてご自身の欄に署名してください。');
+    }
     const plannedCapacity = getPlannedCapacity();
     const signingCapacity = role === 'recipient' ? 'self'
       : role === 'additional' ? 'additional'
@@ -4190,7 +4196,9 @@ const VoidFlow = (() => {
         note.textContent = '先ほど代筆したご家族がご自身の欄にも署名する場合、入力済みの氏名・住所・続柄を引き継げます。内容を確認・修正し、署名は新しく書いてください。';
         card.appendChild(note);
         card.appendChild(bigButton('先ほど代筆したご家族が続けて署名', () => continueWith(reusableScribe)));
-        card.appendChild(bigButton('別の方が署名', () => continueWith({})));
+        if (!currentSigningTemplate.requireAdditionalForScribe) {
+          card.appendChild(bigButton('別の方が署名', () => continueWith({})));
+        }
       } else {
         card.appendChild(bigButton('続ける', () => continueWith({})));
       }
@@ -4615,7 +4623,8 @@ const VoidFlow = (() => {
     const recipientName = SigningFlow.getSession().recipientName || '';
     nameInput.value = signingUiState.draft.typedName
       || (currentRole() === 'recipient' ? recipientName : '');
-    nameInput.readOnly = plannedRole === 'recipient';
+    nameInput.readOnly = plannedRole === 'recipient' ||
+      (!!currentSigningTemplate.requireAdditionalForScribe && !!SigningFlow.getReusableScribeDetails());
     nameLabel.appendChild(nameInput);
     box.appendChild(nameLabel);
 
