@@ -2,24 +2,32 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
+<meta name="viewport" content=" width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
 <title>電子契約アプリ（介護事業所向け）</title>
+<script src="theme.js?v=20261003-storage15"></script>
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header class="app-header">
     <div class="app-header-top">
-      <h1>📝 電子契約アプリ</h1>
+      <h1>電子契約アプリ</h1>
+      <div class="theme-switch" role="group" aria-label="表示モード">
+        <button type="button" data-theme-choice="light" aria-pressed="false">ライト</button>
+        <button type="button" data-theme-choice="dark" aria-pressed="false">ダーク</button>
+      </div>
       <a class="app-credit" href="https://x.com/kat_t0o" target="_blank" rel="noopener">
         <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M18.9 2H22l-7.6 8.7L23 22h-6.6l-5.2-6.8L5 22H1.9l8.1-9.3L1 2h6.7l4.7 6.2L18.9 2zM16.6 20h1.9L7.5 4H5.5L16.6 20z"/></svg>
         作成：ケアマネカトゥ（@kat_t0o）
       </a>
     </div>
     <nav class="toolbar">
-      <button id="btn-nav-home" class="tool-button" type="button">🏠 ホーム</button>
-      <button id="btn-nav-new-template" class="tool-button" type="button">🆕 新しいテンプレートを作る</button>
-      <button id="btn-nav-void" class="tool-button" type="button">🗂 契約の無効化・再契約</button>
-      <button id="btn-nav-help" class="tool-button" type="button">❓ 使い方</button>
+      <button id="btn-nav-home" class="tool-button" type="button">ホーム</button>
+      <button id="btn-nav-new-template" class="tool-button" type="button">新しいテンプレートを作る</button>
+      <button id="btn-nav-void" class="tool-button" type="button">契約書の訂正・再署名</button>
+      <button id="btn-nav-help" class="tool-button" type="button">使い方</button>
+      <button id="btn-nav-resume" class="tool-button hidden" type="button">入力中の契約に戻る</button>
+      <button id="btn-nav-draft-save" class="tool-button hidden" type="button">途中保存（暗号化）</button>
+      <button id="btn-nav-last-export" class="tool-button hidden" type="button">直前の署名書類</button>
     </nav>
   </header>
 
@@ -28,8 +36,10 @@
     <!-- ホーム画面: テンプレート一覧 -->
     <section id="screen-home" class="app-screen">
       <div class="screen-inner">
-        <h2>📋 テンプレート一覧</h2>
-        <p class="screen-hint">契約書・重要事項説明書のPDFに署名欄を配置したテンプレートです。一度作れば繰り返し使えます。</p>
+        <div class="template-heading">
+          <h2>テンプレート</h2>
+          <button id="btn-home-new-template" class="tool-button tool-button-primary" type="button">＋ テンプレートを作る</button>
+        </div>
         <div class="thumb-size-control" id="thumb-size-control">
           <span class="thumb-size-label">表示サイズ</span>
           <button type="button" class="thumb-size-btn" data-size="small">小</button>
@@ -37,13 +47,21 @@
           <button type="button" class="thumb-size-btn" data-size="large">大</button>
         </div>
         <div id="template-list" class="template-grid"></div>
+        <div class="resume-panel">
+          <div><h3>入力中の契約</h3><p>このタブで始めた契約の続きに戻ります。再読み込みすると消えるため、必要に応じてファイルに途中保存してください。</p><button id="btn-home-resume" class="tool-button-small" type="button" disabled>入力中の契約に戻る</button></div>
+          <div><h3>途中保存した契約</h3><p>保存した .keiyaku ファイルとパスワードを使い、最後に保存した時点から再開します。</p><button id="btn-draft-restore" class="tool-button-small" type="button">途中保存ファイルから再開</button></div>
+        </div>
+        <h3 class="home-tools-title">事業所・書式・保存した書類</h3>
         <div class="backup-actions">
-          <button id="btn-export-templates" class="tool-button-small" type="button">⬇ テンプレートをバックアップ</button>
-          <button id="btn-import-templates" class="tool-button-small" type="button">⬆ バックアップから復元・追加</button>
+          <button id="btn-operator-settings" class="tool-button-small" type="button">事業所・担当者を登録</button>
+          <button id="btn-open-verification" class="tool-button-small" type="button">保存した書類を照合</button>
+          <button id="btn-export-templates" class="tool-button-small" type="button">テンプレートをバックアップ</button>
+          <button id="btn-import-templates" class="tool-button-small" type="button">バックアップから復元・追加</button>
+          <p class="side-panel-hint">バックアップの取込みは1ファイル64MBまでです。大きい場合は、書式を選んで分けてバックアップしてください。</p>
           <input type="file" id="import-templates-input" accept="application/json" class="hidden" />
         </div>
         <div id="cloud-drive-section" class="cloud-drive-box hidden">
-          <h3>☁️ クラウド保存（任意）</h3>
+          <h3>クラウド保存（任意）</h3>
           <p class="side-panel-hint">Googleドライブに接続すると、署名完了時に端末へのダウンロードと同時に、事業所ご自身のドライブにも自動保存されます。</p>
           <p id="cloud-drive-status" class="cloud-drive-status">未接続</p>
           <button id="btn-cloud-drive-toggle" class="tool-button-small" type="button">Googleドライブに接続</button>
@@ -55,20 +73,55 @@
     <section id="screen-template-editor" class="app-screen">
       <div class="editor-layout">
         <aside class="side-panel">
-          <h2>📄 PDFを選ぶ</h2>
+          <h2> PDFを選ぶ</h2><p class="side-panel-hint">未記入の原本PDFを使ってください。PDF全体が端末とバックアップに保存されます。</p>
           <input type="file" id="pdf-file-input" accept="application/pdf" />
-          <h2>✍️ 項目を配置</h2>
+          <p class="side-panel-hint">複数ページに対応しています。ページ数の固定上限はなく、PDFは1書式20MBまでです。保存できる合計容量は端末・ブラウザに依存します。</p>
+          <p id="pdf-file-status" class="side-panel-hint" role="status"></p>
+          <h2>項目を配置</h2>
+          <p class="side-panel-hint">枠内の氏名・住所・続柄は架空の「印字見本」です。実際の契約には入力した内容が印字されます。</p>
+          <label class="checkbox-row"><input type="checkbox" id="toggle-print-preview" checked />印字見本を表示</label>
           <p class="side-panel-hint">ボタンを押してから、PDF上をドラッグして四角を描くと項目が追加されます。</p>
+          <p class="side-panel-hint">まず「手書き署名」を配置。PDFに署名とは別の氏名欄がある場合だけ、氏名（活字）を追加します。署名が氏名欄を兼ねる書式なら追加不要です。</p>
+          <p id="field-assignment-target" class="field-assignment-target" role="status"></p>
           <div id="field-palette" class="fixture-palette"></div>
           <div id="field-edit-panel" class="edit-popup"></div>
-          <h2>💾 テンプレートとして保存</h2>
+          <h2>テンプレートとして保存</h2>
+          <label class="field-label">この書式の署名方法
+            <select id="template-signing-mode">
+              <option value="single">本人または家族の1人で完結（標準）</option>
+              <option value="optional">必要な場合だけ追加の人も署名</option>
+              <option value="all">設定した全員の署名が必要</option>
+              <option value="legacy" hidden>従来の設定を維持</option>
+            </select>
+          </label>
+          <label id="scribe-additional-setting" class="checkbox-row">
+            <input type="checkbox" id="template-require-additional-for-scribe" checked />
+            本人名を家族が代筆する場合は、続けて家族本人の署名も必須にする
+          </label>
+          <p id="scribe-additional-hint" class="side-panel-hint">「必要な場合だけ追加の人も署名」を選んだ書式で使います。本人が自署した場合は、追加署名を省略できます。</p>
+          <p id="template-field-summary" class="side-panel-hint" role="status"></p>
+          <p class="side-panel-hint">複数人の場合、署名順が先頭の欄が本人またはご家族用です。それ以降の欄は追加署名用です。各署名欄に「家族の同意」など目的のラベルを付けてください。</p>
           <label class="field-label">書式名（必須）
             <input type="text" id="template-name-input" placeholder="例：居宅介護支援 重要事項説明書" />
           </label>
           <label class="field-label">版のメモ（任意）
             <input type="text" id="template-version-label-input" placeholder="例：2026年報酬改定対応版" />
           </label>
-          <button id="btn-save-template" class="tool-button tool-button-primary" type="button">💾 テンプレートを保存</button>
+          <button id="btn-save-template" class="tool-button tool-button-primary" type="button">テンプレートを保存</button>
+          <button id="btn-backup-editing-template" class="tool-button" type="button">編集中の書式をバックアップ</button>
+          <p class="side-panel-hint">保存できない場合や作成を中断する場合、編集中の書式をファイルへ退避できます。ホームの「バックアップから復元・追加」で編集を再開します。</p>
+          <details>
+            <summary>試し印字の内容</summary>
+            <label class="field-label">1人目の見本氏名<input id="preview-name" value="山田 太郎" /></label>
+            <label class="field-label">2人目以降の見本氏名<input id="preview-additional-name" value="山田 花子" /></label>
+            <label class="field-label">見本の利用者住所<input id="preview-recipient-address" value="東京都千代田区丸の内一丁目2番3号" /></label>
+            <label class="field-label">見本の利用者建物名・部屋番号<input id="preview-recipient-building" value="見本マンション101号室" /></label>
+            <label class="field-label">見本の署名者住所<input id="preview-address" value="東京都千代田区丸の内一丁目2番3号" /></label>
+            <label class="field-label">見本の署名者建物名・部屋番号<input id="preview-building" value="ケアマンション101号室" /></label>
+            <label class="field-label">1人目の記入者<select id="preview-role"><option value="recipient">利用者本人</option><option value="family">ご家族（代筆・代理）</option></select></label>
+          </details>
+          <button id="btn-preview-template" class="tool-button" type="button">試し印字を確認</button>
+          <p class="side-panel-hint">署名欄を選び「この欄で試し書き」で実際の筆跡を確認できます。見本PDFでは文字サイズ・住所の折り返し・署名の大きさを確認できます。実際の氏名・住所の長さでもお確かめください。</p>
         </aside>
         <div class="canvas-area">
           <div class="canvas-overlay-toolbars">
@@ -99,26 +152,61 @@
       <div class="signing-stage" id="signing-stage"></div>
     </section>
 
+    <section id="screen-verification" class="app-screen">
+      <div class="screen-inner">
+        <h2>保存した書類を照合</h2>
+        <p class="screen-hint">同じ契約の署名済みPDFと監査記録（JSON）を選び、ファイルと記録が一致するか確認します。ファイルは外部に送信せず、この端末内だけで処理します。</p>
+        <label class="field-label">署名済みPDF（必須）
+          <input type="file" id="verify-pdf-input" accept=".pdf,application/pdf" />
+        </label>
+        <label class="field-label">監査記録JSON（必須）
+          <input type="file" id="verify-audit-input" accept=".json,application/json" />
+        </label>
+        <label class="field-label">説明音声（録音した場合・任意）
+          <input type="file" id="verify-audio-input" accept="audio/*,.m4a,.mp4,.webm,.ogg" />
+        </label>
+        <button id="btn-clear-verification-audio" class="tool-button-small" type="button">音声の選択を解除</button>
+        <p class="side-panel-hint">照合は契約の有効性や本人性を証明するものではありません。元の監査記録を適切に保管してください。</p>
+        <div class="backup-actions">
+          <button id="btn-verify-files" class="tool-button tool-button-primary" type="button">ファイルを照合する</button>
+          <button id="btn-clear-verification" class="tool-button" type="button">選択をクリア</button>
+          <button id="btn-verification-home" class="tool-button" type="button">ホームに戻る</button>
+        </div>
+        <div id="verification-result" class="verification-result" role="status" aria-live="polite"></div>
+        <h3>交付記録を読む</h3><p class="side-panel-hint">交付JSONを選ぶと相手・方法・結果を読めます。上でPDFも選ぶと、そのPDFとの対応を照合できます。</p>
+        <label class="field-label">交付記録JSON<input type="file" id="verify-delivery-input" accept=".json,application/json" /></label>
+        <button id="btn-read-delivery" class="tool-button" type="button">交付記録を読む</button>
+        <div id="delivery-record-result" class="verification-result" role="status" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section id="screen-settings" class="app-screen"><div class="screen-inner">
+      <h2>事業所・担当者の登録</h2><p class="screen-hint">この端末で使う事業所名と担当者の候補を登録します。契約時は担当者を選択できます。利用者の情報はここには保存しません。</p>
+      <label class="field-label">登録する事業所名<input id="settings-provider" maxlength="200" /></label>
+      <label class="field-label">担当者名（1行に1人）<textarea id="settings-staff" rows="6" placeholder="担当者A&#10;担当者B"></textarea></label>
+      <button id="btn-settings-save" class="tool-button tool-button-primary" type="button">登録を保存</button>
+      <button id="btn-settings-home" class="tool-button" type="button">ホームに戻る</button>
+    </div></section>
     <!-- 無効化・再契約画面 -->
     <section id="screen-void" class="app-screen">
       <div class="screen-inner">
-        <h2>🗂 契約の無効化・再契約</h2>
-        <p class="screen-hint">間違った内容で署名してしまった場合、元のPDFは書き換えず「無効化記録」を別途作成します。そのあと同じ内容で再契約できます。</p>
-        <label class="field-label">無効化したい署名済みPDF
+        <h2>契約書の訂正・再署名</h2>
+        <p class="screen-hint">元のPDFを書き換えず、訂正・再署名の理由を別の記録に残します。この操作だけで契約の無効や解除が確定するものではありません。相手方と確認してから再署名・交付してください。</p>
+        <label class="field-label">訂正の対象となる署名済みPDF
           <input type="file" id="void-pdf-input" accept="application/pdf" />
         </label>
         <label class="field-label">旧契約の検証ID（監査記録.jsonのverificationId、分かれば）
           <input type="text" id="void-verification-id-input" placeholder="任意" />
         </label>
-        <label class="field-label">無効化理由（必須）
+        <label class="field-label">訂正・再署名の理由（必須）
           <input type="text" id="void-reason-input" placeholder="例：住所変更のため再契約" />
         </label>
         <label class="field-label">手続き実施者名（必須）
           <input type="text" id="void-staff-name-input" placeholder="例：担当ケアマネジャー名" />
         </label>
-        <button id="btn-void-confirm" class="tool-button tool-button-primary" type="button">🗂 無効化記録を作成</button>
-        <div id="void-result" class="void-result hidden">
-          <p>無効化記録を作成しました。続けて再契約する場合は、使うテンプレートを選んでください。</p>
+        <button id="btn-void-confirm" class="tool-button tool-button-primary" type="button">訂正記録を作成</button>
+        <div id="void-result" class="void-result hidden"><div id="void-downloads"></div>
+          <p>訂正記録を作成しました。続けて再署名する場合は、使うテンプレートを選んでください。</p>
           <div id="void-resign-template-list" class="template-grid"></div>
         </div>
       </div>
@@ -138,20 +226,22 @@
        これが無いとGitHub Pages更新後もiPad Safariが古いJSをキャッシュしたまま読み込み、
        直したはずのバグが再現し続けるという事故が起きるため(実際に発生した)。
        コードを直してpushするたびに、このハッシュも最新のcommitに書き換えること -->
-  <script src="models.js?v=2e174db"></script>
-  <script src="pdf_utils.js?v=20261002-security1"></script>
-  <script src="hash_utils.js?v=2e174db"></script>
-  <script src="template_store.js?v=2e174db"></script>
-  <script src="field_editor.js?v=2e174db"></script>
-  <script src="forms.js?v=2e174db"></script>
-  <script src="signature_pad.js?v=2e174db"></script>
-  <script src="audio_recorder.js?v=2e174db"></script>
-  <script src="signing_flow.js?v=2e174db"></script>
-  <script src="pdf_writer.js?v=2e174db"></script>
-  <script src="audit.js?v=2e174db"></script>
-  <script src="export.js?v=2e174db"></script>
-  <script src="cloud_drive.js?v=2e174db"></script>
-  <script src="void_flow.js?v=2e174db"></script>
-  <script src="app.js?v=2e174db"></script>
+  <script src="models.js?v=20261003-storage15"></script>
+  <script src="pdf_utils.js?v=20261003-storage15"></script>
+  <script src="hash_utils.js?v=20261003-storage15"></script>
+  <script src="template_store.js?v=20261003-storage15"></script>
+  <script src="field_editor.js?v=20261003-storage15"></script>
+  <script src="forms.js?v=20261003-storage15"></script>
+  <script src="signature_pad.js?v=20261003-storage15"></script>
+  <script src="operator_settings.js?v=20261003-storage15"></script>
+  <script src="draft_vault.js?v=20261003-storage15"></script>
+  <script src="signing_flow.js?v=20261003-storage15"></script>
+  <script src="pdf_writer.js?v=20261003-storage15"></script>
+  <script src="audit.js?v=20261003-storage15"></script>
+  <script src="verification_view.js?v=20261003-storage15"></script>
+  <script src="export.js?v=20261003-storage15"></script>
+  <script src="cloud_drive.js?v=20261003-storage15"></script>
+  <script src="void_flow.js?v=20261003-storage15"></script>
+  <script src="app.js?v=20261003-storage15"></script>
 </body>
 </html>

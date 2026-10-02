@@ -11,8 +11,23 @@ const FieldEditor = (() => {
   let currentPageIndex = 0;
   let zoom = null;
   let armedFieldType = null;
+  let activeSignatureId = null;
   let onFieldSelected = null; // (field) => void
   let onPagesChanged = null; // () => void  (フィールドの追加・移動・削除の度に呼ぶ)
+
+  const signaturePreviews = new Map();
+  let signatureSample = null;
+  function getSignatureSample() {
+    if (signatureSample) return signatureSample;
+    const canvas = document.createElement('canvas'); canvas.width = 240; canvas.height = 60;
+    const context = canvas.getContext('2d'); context.strokeStyle = '#25364a'; context.lineWidth = 3; context.lineCap = 'round';
+    context.stroke(new Path2D('M10 42 Q25 3 35 20 T52 40 Q66 12 72 36 L85 23 M99 13 L90 47 L117 26 L104 45 M139 9 Q126 48 147 39 L171 17 L158 48 Q184 21 187 36 T225 28'));
+    signatureSample = canvas.toDataURL(); return signatureSample;
+  }
+  let showPrintPreview = true;
+  function setSignaturePreview(id, image) { signaturePreviews.set(id, image); renderFieldBoxes(); }
+  function getSignaturePreview(id) { return signaturePreviews.get(id); }
+  function setPrintPreviewVisible(visible) { showPrintPreview = visible; renderFieldBoxes(); }
 
   function init(opts) {
     canvasEl = opts.canvasEl;
@@ -26,6 +41,8 @@ const FieldEditor = (() => {
   async function loadPdfBytes(arrayBuffer) {
     pdfDoc = await PdfUtils.loadPdf(arrayBuffer);
     pages = [];
+    signaturePreviews.clear();
+    activeSignatureId = null;
     for (let i = 1; i <= pdfDoc.numPages; i++) {
       const size = await PdfUtils.getPageSize(pdfDoc, i);
       pages.push({ widthPt: size.widthPt, heightPt: size.heightPt, fields: [] });
@@ -43,6 +60,9 @@ const FieldEditor = (() => {
       heightPt: p.heightPt,
       fields: p.fields.slice(),
     }));
+    signaturePreviews.clear();
+    activeSignatureId = null;
+    normalizeSignatureOrder();
     currentPageIndex = 0;
     await renderCurrentPage();
   }
@@ -91,14 +111,63 @@ const FieldEditor = (() => {
     armedFieldType = type;
   }
 
+  function getActiveSignatureField() {
+    const signatures = getSignatureFields();
+    return signatures.find(field => field.id === activeSignatureId) || (signatures.length === 1 ? signatures[0] : null);
+  }
+  function setActiveSignatureForField(field) {
+    if (!field) return;
+    if (field.type === 'signature') activeSignatureId = field.id;
+    else if (!['recipient_name','recipient_address'].includes(field.type) && field.linkedFieldId) {
+      if (getSignatureFields().some(signature => signature.id === field.linkedFieldId)) activeSignatureId = field.linkedFieldId;
+    }
+  }
+
+  function fitAddressRows(field) {
+    if (!['address','recipient_address'].includes(field.type) || !field.addressRows) return;
+    const page = pages.find(page => page.fields.some(item => item.id === field.id));
+    if (!page) return;
+    const height = (field.fontSize || 14) * 1.5 * field.addressRows + 4;
+    const top = field.y + field.height;
+    field.height = Math.min(height, page.heightPt);
+    field.y = Math.max(0, Math.min(top - field.height, page.heightPt - field.height));
+  }
+
+  function normalizeSignatureOrder() {
+    getSignatureFields().forEach((field, index) => { field.signOrder = index + 1; });
+  }
+  function setSignatureOrder(field, position) {
+    const ordered = getSignatureFields().filter(item => item.id !== field.id);
+    ordered.splice(Math.max(0, Math.min(ordered.length, position - 1)), 0, field);
+    ordered.forEach((item, index) => { item.signOrder = index + 1; });
+    renderFieldBoxes();
+  }
+
   const FIELD_TYPE_LABELS = {
     signature: '署名欄',
     date: '日付欄',
-    name: '氏名欄',
+    name: '署名者氏名欄',
+    recipient_name: '利用者氏名欄',
+    recipient_address: '利用者住所欄',
     relationship: '続柄欄',
     declaration_checkbox: '確認チェック欄',
     address: '住所欄',
   };
+
+  const PRINT_PREVIEW_TEXT = {
+    name: '山田 太郎', recipient_name: '山田 太郎',
+    recipient_address: '東京都千代田区丸の内一丁目2番3号\n見本マンション101号室',
+    address: '東京都千代田区丸の内一丁目2番3号\n見本マンション101号室',
+    relationship: '長女', date: '2026年9月23日', declaration_checkbox: '✓ 確認済み',
+  };
+
+  function getPrintPreviewText(field) {
+    if (field.type === 'declaration_checkbox' && field.checkPrintStyle === 'check') return '✓';
+    if (field.type !== 'date') return PRINT_PREVIEW_TEXT[field.type] || '印字見本';
+    if (field.dateFormat === 'reiwa') return '令和8年9月23日';
+    if (field.dateFormat === 'gregorian_kanji') return '2026年9月23日';
+    return '2026/9/23';
+  }
 
   // 「本人の住所欄と家族の住所欄、両方とも同じデータで上書きされて重なる」という事故が
   // 実際にあった。役割(本人/家族)だけでのマッチングだと、署名欄が複数ある時に
@@ -127,12 +196,12 @@ const FieldEditor = (() => {
       const isSignature = field.type === 'signature';
       let groupClass = '';
       let groupText = '';
-      if (!isSignature) {
+      if (!isSignature && !['recipient_name','recipient_address'].includes(field.type)) {
         const groupIndex = signatureFields.findIndex(sf => sf.id === field.linkedFieldId);
         if (groupIndex >= 0) {
           groupClass = ' ' + groupColorClass(groupIndex);
           groupText = groupLabel(signatureFields[groupIndex], groupIndex);
-        } else if (signatureFields.length >= 2) {
+        } else {
           // 署名欄が2つ以上あるのにどれにも紐付いていない = 設定漏れ。目立つ警告色にする
           groupClass = ' field-group-unlinked';
           groupText = '⚠️ 署名欄未設定';
@@ -148,9 +217,26 @@ const FieldEditor = (() => {
 
       const labelSpan = document.createElement('span');
       labelSpan.className = 'field-box-label';
-      labelSpan.textContent = (field.label || FIELD_TYPE_LABELS[field.type] || field.type) +
+      labelSpan.textContent = (isSignature ? '署名欄 ' + field.signOrder + (field.label ? '：' + field.label : '') : field.label || FIELD_TYPE_LABELS[field.type] || field.type) +
         (groupText ? '（' + groupText + '）' : '');
       box.appendChild(labelSpan);
+
+      if (isSignature && showPrintPreview) {
+        const image = document.createElement('img'); image.className = 'field-signature-preview';
+        image.alt = signaturePreviews.has(field.id) ? '試し書きした署名' : '手書き署名の見本';
+        image.src = signaturePreviews.get(field.id) || getSignatureSample();
+        image.style.transform = 'scale(' + (field.signatureScale || 100) / 100 + ')';
+        box.appendChild(image); labelSpan.textContent += signaturePreviews.has(field.id) ? '｜試し書き' : '｜手書き見本';
+      }
+      if (!isSignature && showPrintPreview) {
+        const printPreview = document.createElement('span');
+        printPreview.className = 'field-box-print-preview';
+        labelSpan.textContent += '｜印字見本';
+        printPreview.textContent = getPrintPreviewText(field);
+        printPreview.style.fontSize = Math.max(8, (field.fontSize || 11) * zoom.getScale()) + 'px';
+        if (field.type === 'address' || field.type === 'recipient_address') printPreview.classList.add('is-multiline');
+        box.appendChild(printPreview);
+      }
 
       attachMoveHandlers(box, field, page);
       ['nw', 'ne', 'sw', 'se'].forEach(corner => {
@@ -166,10 +252,30 @@ const FieldEditor = (() => {
       });
 
       overlayEl.appendChild(box);
+      const printPreview = box.querySelector('.field-box-print-preview');
+      if (printPreview) {
+        const baseSize = field.fontSize || 11;
+        let fittedSize = baseSize;
+        const scale = zoom.getScale();
+        const overflows = () => printPreview.scrollWidth > printPreview.clientWidth + 2 || printPreview.scrollHeight > printPreview.clientHeight + 2;
+        while (overflows() && fittedSize > 6) {
+          fittedSize = Math.max(6, fittedSize - 0.5);
+          printPreview.style.fontSize = Math.max(8, fittedSize * scale) + 'px';
+        }
+        if (overflows()) {
+          printPreview.classList.add('is-overflowing');
+          printPreview.title = '6ptでも見本が枠に収まりません。枠を広げるか、PDFの試し印字をご確認ください。';
+        } else {
+          printPreview.title = fittedSize < baseSize
+            ? '設定値 ' + baseSize + 'pt → 見本の印字サイズ 約' + fittedSize.toFixed(1) + 'pt（枠に合わせて縮小）'
+            : '見本の印字サイズ 約' + fittedSize.toFixed(1) + 'pt';
+        }
+      }
     });
   }
 
   function selectField(field) {
+    setActiveSignatureForField(field);
     overlayEl.querySelectorAll('.field-box').forEach(el => el.classList.remove('is-selected'));
     const el = overlayEl.querySelector('[data-field-id="' + field.id + '"]');
     if (el) el.classList.add('is-selected');
@@ -223,6 +329,7 @@ const FieldEditor = (() => {
     });
     handle.addEventListener('pointermove', (evt) => {
       if (!resizing) return;
+      if (['address','recipient_address'].includes(field.type)) delete field.addressRows;
       const scale = zoom.getScale();
       const dxPt = (evt.clientX - startPx) / scale;
       const dyPt = (evt.clientY - startPy) / scale;
@@ -258,6 +365,7 @@ const FieldEditor = (() => {
       if (!resizing) return;
       resizing = false;
       handle.releasePointerCapture(evt.pointerId);
+      selectField(field);
       if (onPagesChanged) onPagesChanged();
     });
   }
@@ -312,13 +420,13 @@ const FieldEditor = (() => {
       const field = Models.createField({
         type: armedFieldType,
         x: rect.x, y: rect.y, width: rect.width, height: rect.height,
-        signOrder: page.fields.length + 1,
+        signOrder: getSignatureFields().length + 1,
       });
-      // 署名欄が1つしか無いテンプレートが標準形なので、その場合だけ自動で紐付ける
-      // (手間ゼロにする)。署名欄が2つ以上ある場合は事業所に明示的に選んでもらう
-      if (field.type !== 'signature') {
-        const sigFields = getSignatureFields();
-        if (sigFields.length === 1) field.linkedFieldId = sigFields[0].id;
+      // 直前に選択・配置した署名欄の項目を続けて配置できるようにする。
+      // 利用者本人の氏名・住所は、記入者に依存しない共通情報として扱う。
+      if (!['signature','recipient_name','recipient_address'].includes(field.type)) {
+        const signature = getActiveSignatureField();
+        if (signature) field.linkedFieldId = signature.id;
       }
       page.fields.push(field);
       renderFieldBoxes();
@@ -330,6 +438,9 @@ const FieldEditor = (() => {
   function removeField(fieldId) {
     const page = pages[currentPageIndex];
     page.fields = page.fields.filter(f => f.id !== fieldId);
+    signaturePreviews.delete(fieldId);
+    if (activeSignatureId === fieldId) activeSignatureId = null;
+    normalizeSignatureOrder();
     renderFieldBoxes();
     if (onPagesChanged) onPagesChanged();
   }
@@ -337,7 +448,7 @@ const FieldEditor = (() => {
   return {
     init, loadPdfBytes, loadFromTemplate,
     zoomIn, zoomOut, fitToView, goToPage,
-    getPageCount, getCurrentPageIndex, getPages, getSignatureFields,
-    setArmedFieldType, attachDrawHandlers, renderFieldBoxes, removeField,
+    getPageCount, getCurrentPageIndex, getPages, getSignatureFields, fitAddressRows, getActiveSignatureField, setActiveSignatureForField,
+    setSignatureOrder, setSignaturePreview, getSignaturePreview, getSignatureSample, setArmedFieldType, attachDrawHandlers, renderFieldBoxes, removeField, setPrintPreviewVisible,
   };
 })();

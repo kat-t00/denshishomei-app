@@ -13,13 +13,6 @@ const PdfWriter = (() => {
 
   const TEXT_COLOR = () => PDFLib.rgb(0.05, 0.05, 0.1);
 
-  function fitFontSize(font, text, baseSize, maxWidth) {
-    if (!maxWidth) return baseSize;
-    const width = font.widthOfTextAtSize(text, baseSize);
-    if (width <= maxWidth) return baseSize;
-    return Math.max(baseSize * (maxWidth / width), 6);
-  }
-
   // 和暦(令和等)はIntlの日本カレンダーに任せる(改元境界の手計算はミスの元なので避ける)
   function formatDate(date, dateFormat) {
     if (dateFormat === 'reiwa') {
@@ -40,12 +33,26 @@ const PdfWriter = (() => {
   function drawFieldText(page, font, field, text) {
     if (!text) return;
     const baseSize = field.fontSize || 11;
-    const size = fitFontSize(font, text, baseSize, field.width - 4);
-    page.drawText(text, {
-      x: field.x + 2,
-      y: field.y + field.height * 0.25,
-      size, font, color: TEXT_COLOR(),
-    });
+    const width = field.width - 4, height = field.height - 4;
+    // 住所は複数行を使う。文字を省略せず、幅と高さの両方に収まるサイズを探す。
+    for (let size = baseSize; size >= 6; size = Math.max(5.5, size - 0.5)) {
+      const lines = field.type === 'address' || field.type === 'recipient_address'
+        ? String(text).split(/\r?\n/).flatMap(line => wrapLineToWidth(font, line, size, width))
+        : [String(text).replace(/\r?\n/g, ' ')];
+      const glyphHeight = font.heightAtSize(size);
+      const ascent = font.heightAtSize(size, { descender: false });
+      const lineHeight = Math.max(glyphHeight, size * 1.3);
+      const totalHeight = glyphHeight + (lines.length - 1) * lineHeight;
+      if (totalHeight > height || lines.some(line => font.widthOfTextAtSize(line, size) > width)) continue;
+      const top = field.y + field.height - 2 - (height - totalHeight) / 2;
+      lines.forEach((line, index) => page.drawText(line, {
+        x: field.x + 2, y: top - ascent - index * lineHeight,
+        size, font, color: TEXT_COLOR(),
+      }));
+      return;
+    }
+    const labels = { name: '署名者氏名欄', address: '署名者住所欄', recipient_address: '利用者住所欄', date: '日付欄', relationship: '続柄欄', declaration_checkbox: '確認チェック欄' };
+    throw new Error('「' + (field.label || labels[field.type] || field.type) + '」の文字が枠に収まりません。文字を省略せず出力するため、テンプレートの枠を広げてください。');
   }
 
   async function drawSignatureImage(pdfLibDoc, page, field, dataUrl) {
@@ -80,23 +87,14 @@ const PdfWriter = (() => {
   // 関連項目とみなして値を埋める。以前は役割(本人/家族)だけでマッチングしていたが、
   // 署名欄が複数あるテンプレートで「本人欄の下に家族の住所が印字される」等の事故が
   // 実際にあったため、「どの署名欄の項目か」を明示的に紐付ける方式に変更した。
-  // declaration_checkbox(確認チェック欄)だけは、紐付いた上でさらに
-  // 「誰が署名した時に表示するか」(assignedRole)の条件も満たす必要がある
-  function relatedTextFields(pages, signatureField, signerRole) {
-    const results = [];
-    pages.forEach(page => {
-      page.fields.forEach(f => {
-        if (f.id === signatureField.id) return;
-        if (f.type !== 'name' && f.type !== 'relationship' && f.type !== 'date' && f.type !== 'address' && f.type !== 'declaration_checkbox') return;
-        if (f.linkedFieldId !== signatureField.id) return;
-        if (f.type === 'declaration_checkbox' && !(f.assignedRole === signerRole || f.assignedRole === 'either')) return;
-        results.push(f);
-      });
-    });
-    return results;
+  // 表示・必須チェックと同じ役割判定で、印字対象を選ぶ。
+  function relatedTextFields(template, signatureField, signerRole) {
+    return Models.getSignerFields(template, signatureField.id, signerRole,
+      ['name','relationship','date','address','declaration_checkbox']);
   }
 
-  const ROLE_LABELS = { recipient: '利用者本人', family: 'ご家族（代理）' };
+  const ROLE_LABELS = { recipient: '利用者本人', family: 'ご家族', additional: '追加の署名者' };
+  const CAPACITY_LABELS = { self: '本人自署', scribe: '本人の意思確認済みの代筆', representative: '代理人署名', additional: '追加署名者本人' };
 
   const APP_NAME = 'keiyaku_app（介護事業所向け電子契約アプリ）';
 
@@ -109,21 +107,33 @@ const PdfWriter = (() => {
     lines.push('署名開始: ' + new Date(session.startedAt).toLocaleString('ja-JP'));
     lines.push('署名完了: ' + (session.completedAt ? new Date(session.completedAt).toLocaleString('ja-JP') : '-'));
     lines.push('');
+    if (session.operator) {
+      lines.push('事業所: ' + session.operator.providerName);
+      lines.push('説明・確認担当者（事業者の申告）: ' + session.operator.staffName);
+    }
+    if (session.deliveryPlan) lines.push('控えの交付予定: ' + (session.deliveryPlan.method === 'electronic' ? '電子（受取人の承諾確認済み）' : '紙') + ' / 実施結果は別の交付記録に記載');
     lines.push('■ 署名者一覧');
+    if (session.recipientName) lines.push('利用者氏名: ' + session.recipientName);
+    if (session.recipientAddress) lines.push('利用者住所: ' + Models.fullAddress(session.recipientAddress,session.recipientBuilding).replace(/\n/g,' '));
+    if ((session.eventLog || []).some(event => event.reason === 'additional_not_required')) {
+      lines.push('追加署名: 署名前の確認で今回は不要と選択');
+    }
     session.signers.forEach((s, i) => {
-      lines.push((i + 1) + '. ' + (ROLE_LABELS[s.role] || s.role) + '　氏名: ' + s.typedName +
-        (s.address ? '　住所: ' + s.address : '') +
+      lines.push((i + 1) + '. 実際に記入した人: ' + (ROLE_LABELS[s.role] || s.role) + '　氏名: ' + s.typedName +
+        '　記入方法: ' + (CAPACITY_LABELS[s.signingCapacity] || (s.role === 'family' ? '代理人署名（従来の記録）' : CAPACITY_LABELS[s.role] || s.role)) +
+        (s.address ? '　住所: ' + Models.fullAddress(s.address,s.building).replace(/\n/g,' ') : '') +
         (s.relationship ? '　続柄: ' + s.relationship : '') +
-        (s.role === 'family' ? '　代理権限確認: ' + (s.declarationChecked ? '済' : '未') : '') +
+        (s.signingCapacity === 'representative' || (s.role === 'family' && !s.signingCapacity) ? '　代理権確認: ' + (s.declarationChecked ? '済' : '未') + (s.authorityBasis ? '（根拠: ' + s.authorityBasis + '）' : '') : '') +
+        (s.signingCapacity === 'scribe' ? '　本人の意思確認: ' + (s.recipientConsentConfirmed ? '済' : '未') : '') +
         ((s.confirmedDeclarations && s.confirmedDeclarations.length) ? '　確認項目: ' + s.confirmedDeclarations.join('、') : '') +
         '　署名時刻(端末時計): ' + new Date(s.signedAt).toLocaleString('ja-JP'));
     });
     if (session.resignOf) {
       lines.push('');
       lines.push('■ 再契約情報');
-      lines.push('本契約は無効化された旧契約の再契約です。');
+      lines.push('本書面は旧契約書の訂正・再署名に関連する記録です。');
       lines.push('旧契約の検証ID: ' + session.resignOf.previousVerificationId);
-      lines.push('無効化理由: ' + session.resignOf.voidReason);
+      lines.push('訂正・再署名の理由: ' + session.resignOf.voidReason);
     }
     if (session.hasExplanationAudio) {
       lines.push('');
@@ -133,10 +143,12 @@ const PdfWriter = (() => {
     }
     lines.push('');
     lines.push('■ 検証方法');
-    lines.push('本PDFが発行後に改ざんされていないかは、本PDFファイルのSHA-256ハッシュ値と、');
-    lines.push('本PDFと同時に発行される検証用ファイル（同じファイル名で拡張子のみ「_監査記録.json」）');
-    lines.push('に記録されたハッシュ値を照合することで確認できます。両者が一致すれば、');
-    lines.push('発行後に本PDFの内容が変更されていないことを意味します。');
+    lines.push('アプリのホームにある「保存した書類を照合」でPDFと監査記録を選択できます。');
+    lines.push('本PDFと保存済み監査記録の対応関係は、本PDFファイルのSHA-256ハッシュ値と、');
+    lines.push('本PDFと同時に発行される監査記録（ファイル名の末尾が「_監査記録.json」）');
+    lines.push('に記録されたハッシュ値を照合することで確認できます。');
+    lines.push('ただし、PDFと監査記録の両方を変更してハッシュを再計算した場合、');
+    lines.push('この照合だけでは変更を検出できません。元の監査記録の保全が必要です。');
     lines.push('');
     lines.push('■ 免責事項');
     lines.push('本記録の時刻は署名を行った端末のシステム時計に基づくものであり、');
@@ -190,7 +202,9 @@ const PdfWriter = (() => {
 
   // 最終的な署名済みPDFのバイト列を作る。証跡ページを付けた後の完成バイト列を返すので、
   // ハッシュ計算は必ずこの関数の戻り値に対して行うこと(証跡ページ追加前のバイト列と一致しない)。
-  async function buildSignedPdf(template, session) {
+  async function buildSignedPdf(template, session, options = {}) {
+    const errors = Models.validateTemplate(template);
+    if (errors.length) throw new Error(errors.join('\n'));
     const { PDFDocument } = PDFLib;
     const bytes = PdfUtils.base64ToArrayBuffer(template.pdfBase64);
     const pdfLibDoc = await PDFDocument.load(bytes);
@@ -198,7 +212,17 @@ const PdfWriter = (() => {
     const fontBytes = loadFontBytes();
     const font = await pdfLibDoc.embedFont(fontBytes, { subset: false });
     const pdfPages = pdfLibDoc.getPages();
+    pdfPages.forEach((page, index) => {
+      const crop = page.getCropBox();
+      if (page.getRotation().angle % 360 !== 0 || crop.x !== 0 || crop.y !== 0) {
+        throw new Error((index + 1) + 'ページ目に回転または特殊な切り抜き情報があります。配置がずれるため、回転・切り抜き情報のないPDFを使用してください。');
+      }
+    });
 
+    template.pages.forEach((page, index) => page.fields.forEach(field => {
+      if (field.type === 'recipient_name') drawFieldText(pdfPages[index], font, field, session.recipientName);
+      else if (field.type === 'recipient_address') drawFieldText(pdfPages[index], font, field, Models.fullAddress(session.recipientAddress,session.recipientBuilding));
+    }));
     for (const signer of session.signers) {
       const field = findField(template.pages, signer.fieldId);
       if (!field) continue;
@@ -207,18 +231,23 @@ const PdfWriter = (() => {
 
       await drawSignatureImage(pdfLibDoc, pdfPage, field, signer.signatureImageDataUrl);
 
-      relatedTextFields(template.pages, field, signer.role).forEach(textField => {
+      relatedTextFields(template, field, signer.role).forEach(textField => {
         const textPageIndex = template.pages.findIndex(p => p.fields.some(f => f.id === textField.id));
         const textPdfPage = pdfPages[textPageIndex];
         if (textField.type === 'name') drawFieldText(textPdfPage, font, textField, signer.typedName);
         else if (textField.type === 'relationship') drawFieldText(textPdfPage, font, textField, signer.relationship || '');
-        else if (textField.type === 'address') drawFieldText(textPdfPage, font, textField, signer.address || '');
+        else if (textField.type === 'address') drawFieldText(textPdfPage, font, textField, Models.fullAddress(signer.address,signer.building));
         else if (textField.type === 'date') drawFieldText(textPdfPage, font, textField, formatDate(new Date(signer.signedAt), textField.dateFormat));
-        else if (textField.type === 'declaration_checkbox') drawFieldText(textPdfPage, font, textField, '✓ 確認済み');
+        else if (textField.type === 'declaration_checkbox' && (options && options.preview || (signer.confirmedDeclarationIds || []).includes(textField.id) || (!signer.confirmedDeclarationIds && (signer.confirmedDeclarations || []).includes(textField.label)))) drawFieldText(textPdfPage, font, textField, textField.checkPrintStyle === 'check' ? '✓' : '✓ 確認済み');
       });
     }
 
     appendEvidencePage(pdfLibDoc, font, session);
+    if (options.preview) {
+      pdfLibDoc.getPages().forEach(page => page.drawText('見本・契約には使用できません', {
+        x: 20, y: 20, font, size: 14, color: PDFLib.rgb(0.8, 0.1, 0.1),
+      }));
+    }
     return pdfLibDoc.save();
   }
 

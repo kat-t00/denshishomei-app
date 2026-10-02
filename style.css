@@ -1,20 +1,17 @@
-/* ポップで視認性の良いデザイン（丸ゴシック・パステル・角丸）。
-   madori_app/genogram_web/shinsei_form_appと同じデザイン言語(配色トークン・角丸ボタン等)を
-   踏襲しつつ、他アプリと被らないインディゴ×ゴールドの配色にしている。
-   署名フロー画面は高齢者・タブレット操作を考慮し、ボタンや文字を他画面より大きめにする。 */
+/* 書面の確認と署名に集中できる、落ち着いた業務画面。 */
 
 :root {
-  --color-bg: #f4f4fb;
-  --color-header-start: #7c83fd;
-  --color-header-end: #4b5cc4;
-  --color-primary: #5563d1;
-  --color-primary-dark: #3c47a8;
-  --color-secondary: #e8a33d;
-  --color-secondary-dark: #c8862a;
-  --color-danger: #e0575a;
+  --color-bg: #f3f5f7;
+  --color-header-start: #ffffff;
+  --color-header-end: #ffffff;
+  --color-primary: #264b70;
+  --color-primary-dark: #1d3c5a;
+  --color-secondary: #466780;
+  --color-secondary-dark: #34536d;
+  --color-danger: #b42318;
   --color-card: #ffffff;
-  --color-border: #dcdcf2;
-  --color-text: #2f3b52;
+  --color-border: #d3dbe3;
+  --color-text: #22313f;
   --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
@@ -24,7 +21,7 @@
 
 body {
   margin: 0;
-  font-family: -apple-system, "Hiragino Maru Gothic ProN", "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
+  font-family: -apple-system, "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
   background: var(--color-bg);
   color: var(--color-text);
   display: flex;
@@ -89,7 +86,7 @@ input, textarea {
   font-weight: bold;
   color: #ffffff;
   background: rgba(255, 255, 255, 0.2);
-  border-radius: 999px;
+  border-radius: 6px;
   padding: 5px 12px;
   text-decoration: none;
   white-space: nowrap;
@@ -105,7 +102,7 @@ input, textarea {
 
 .tool-button {
   border: none;
-  border-radius: 999px;
+  border-radius: 6px;
   padding: 5px 11px;
   background: rgba(255, 255, 255, 0.92);
   color: var(--color-primary-dark);
@@ -134,9 +131,9 @@ input, textarea {
 
 .tool-button-small {
   border: none;
-  border-radius: 999px;
+  border-radius: 6px;
   padding: 4px 10px;
-  background: #eceafb;
+  background: #f0f3f6;
   color: var(--color-primary-dark);
   font-weight: bold;
   font-size: 12px;
@@ -144,7 +141,7 @@ input, textarea {
 }
 
 .tool-button-small:hover {
-  background: #dcd9f6;
+  background: #e5ebf1;
 }
 
 .tool-button-danger {
@@ -268,7 +265,7 @@ input, textarea {
 
 .fixture-palette {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 6px;
 }
 
@@ -281,11 +278,24 @@ input, textarea {
   font-size: 12px;
   font-weight: bold;
   cursor: pointer;
+  text-align: left;
+}
+
+.palette-button-label,
+.palette-button-hint {
+  display: block;
+}
+
+.palette-button-hint {
+  margin-top: 3px;
+  font-size: 0.78rem;
+  font-weight: normal;
+  line-height: 1.35;
 }
 
 .palette-button:hover {
   border-color: var(--color-primary);
-  background: #eceafb;
+  background: #f0f3f6;
 }
 
 .palette-button.is-armed {
@@ -317,7 +327,7 @@ input, textarea {
   align-items: center;
   gap: 8px;
   background: rgba(255, 255, 255, 0.92);
-  border-radius: 999px;
+  border-radius: 6px;
   padding: 4px 10px;
   box-shadow: var(--shadow-soft);
 }
@@ -331,14 +341,14 @@ input, textarea {
   align-items: center;
   gap: 6px;
   background: rgba(255, 255, 255, 0.92);
-  border-radius: 999px;
+  border-radius: 6px;
   padding: 4px 6px;
   box-shadow: var(--shadow-soft);
 }
 
 .zoom-btn {
   border: none;
-  border-radius: 999px;
+  border-radius: 6px;
   width: 24px;
   height: 24px;
   background: var(--color-card);
@@ -442,6 +452,30 @@ input, textarea {
   pointer-events: none;
 }
 
+.field-box-print-preview {
+  position: absolute;
+  inset: 2px 3px;
+  display: block;
+  overflow: hidden;
+  color: #1c2432;
+  font-family: Arial, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+  font-weight: 400;
+  line-height: 1.25;
+  white-space: nowrap;
+  pointer-events: none;
+  text-align: left;
+}
+
+.field-box-print-preview.is-multiline {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.field-box-print-preview.is-overflowing {
+  color: #b3261e;
+  text-decoration: underline dotted;
+}
+
 .field-resize-handle {
   position: absolute;
   width: 12px;
@@ -460,7 +494,7 @@ input, textarea {
   display: none;
   background: #fdfdff;
   border: 2px solid var(--color-border);
-  border-radius: 14px;
+  border-radius: 8px;
   padding: 12px;
   margin-top: 8px;
 }
@@ -509,9 +543,9 @@ input, textarea {
 
 .thumb-size-btn {
   border: none;
-  border-radius: 999px;
+  border-radius: 6px;
   padding: 4px 14px;
-  background: #eceafb;
+  background: #f0f3f6;
   color: var(--color-primary-dark);
   font-weight: bold;
   font-size: 12px;
@@ -519,7 +553,7 @@ input, textarea {
 }
 
 .thumb-size-btn:hover {
-  background: #dcd9f6;
+  background: #e5ebf1;
 }
 
 .thumb-size-btn.is-active {
@@ -604,7 +638,7 @@ input, textarea {
   padding: 16px;
   background: var(--color-card);
   border: 2px solid var(--color-border);
-  border-radius: 14px;
+  border-radius: 8px;
   max-width: 480px;
 }
 
@@ -626,15 +660,18 @@ input, textarea {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   padding: 24px;
   width: 100%;
   overflow-y: auto;
 }
 
 .signing-card {
+  /* 長い確認・保存画面を中央寄せで上へはみ出させない。 */
+  flex: 0 0 auto;
+  margin-block: auto;
   background: var(--color-card);
-  border-radius: 20px;
+  border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
   padding: 32px;
   width: 100%;
@@ -661,28 +698,6 @@ input, textarea {
 .signing-filename {
   font-size: 14px;
   color: #6b7c93;
-}
-
-/* 重要事項説明の録音コントロール(任意機能)。文書表示の上に小さく置く */
-.audio-recorder-box {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.audio-recorder-box:empty {
-  margin-bottom: 0; /* 録音非対応環境では空要素になるので余白も消す */
-}
-
-.audio-recorder-status {
-  font-size: 15px;
-  font-weight: bold;
-  color: var(--color-text);
-}
-
-.audio-recorder-status.is-recording {
-  color: var(--color-danger);
 }
 
 .signing-field-label {
@@ -771,7 +786,7 @@ input, textarea {
 }
 
 .big-button-secondary {
-  background: #eceafb;
+  background: #f0f3f6;
   color: var(--color-primary-dark);
 }
 
@@ -871,7 +886,7 @@ input, textarea {
   background: rgba(232, 163, 61, 0.25);
   border-radius: 6px;
   cursor: pointer;
-  animation: signing-field-pulse 1.4s ease-in-out infinite;
+  animation: none;
 }
 
 /* 署名モーダルを開いている間、裏に隠れたハイライト枠のパルスアニメーションを止める。
@@ -895,7 +910,7 @@ body.modal-open .signing-field-highlight {
   color: #ffffff;
   background: var(--color-secondary-dark);
   padding: 3px 8px;
-  border-radius: 999px;
+  border-radius: 6px;
   white-space: nowrap;
   pointer-events: none;
 }
@@ -920,7 +935,7 @@ body.modal-open .signing-field-highlight {
 
 .signing-modal-box {
   background: var(--color-card);
-  border-radius: 20px;
+  border-radius: 10px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
   padding: 28px;
   width: 100%;
@@ -1004,6 +1019,23 @@ body.modal-open .signing-field-highlight {
 }
 
 /* ===== 無効化画面 ===== */
+.verification-result:not(:empty) {
+  margin-top: 20px;
+  padding: 18px;
+  border: 2px solid #73847d;
+  border-radius: 12px;
+  background: #f4f8f6;
+  overflow-wrap: anywhere;
+}
+.verification-result[data-status="mismatch"],
+.verification-result[data-status="partial"] {
+  border-color: #ad7131;
+  background: #fff8ed;
+}
+.verification-outcome { font-weight: bold; }
+.verification-hash { font-family: monospace; }
+#screen-verification input[type="file"] { max-width: 100%; box-sizing: border-box; }
+
 .void-result {
   margin-top: 20px;
   padding: 16px;
@@ -1016,10 +1048,10 @@ body.modal-open .signing-field-highlight {
   position: fixed;
   right: 20px;
   bottom: 20px;
-  background: #2f3b52;
+  background: #22313f;
   color: #ffffff;
   padding: 8px 16px;
-  border-radius: 999px;
+  border-radius: 6px;
   font-size: 13px;
   font-weight: bold;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
@@ -1062,3 +1094,194 @@ body.modal-open .signing-field-highlight {
   font-size: 12px;
   color: #6b7c93;
 }
+
+
+/* 現場で見つけやすく、iPadでも文字を入力しやすい欄。 */
+.signing-field-label textarea, .field-label textarea {
+  display:block; width:100%; box-sizing:border-box; min-height:90px;
+  padding:12px; font:inherit; font-size:18px; border:2px solid var(--color-border); border-radius:10px; background:#fff;
+}
+.signing-field-label input, .signing-field-label select { min-height:48px; font-size:18px; }
+.authority-required { display:block; padding:16px; border:2px solid #d39828; border-radius:12px; background:#fff9e9; }
+.signer-missing-reasons { padding:12px; border-radius:10px; background:#fff3db; color:#6b4100; font-size:16px; }
+.signer-missing-reasons.is-ready { background:#e5f5e9; color:#185b2b; }
+.declarations-section { border-top:1px solid var(--color-border); margin-top:16px; }
+.declarations-section h4 { margin-bottom:8px; }
+input[type="range"] { width:100%; min-height:44px; accent-color:var(--color-primary); }
+.draft-dialog { max-width:650px; }
+
+/* 非表示の入力・ボタンを、各部品のdisplay指定で再表示しない。 */
+[hidden] { display:none !important; }
+
+.signing-field-label input:not([type="checkbox"]), .signing-field-label select {
+  display:block; width:100%; margin-top:8px; padding:12px 14px;
+  border:2px solid var(--color-border); border-radius:12px;
+  box-sizing:border-box; font-family:inherit; background:#fdfdff;
+}
+
+/* 装飾より操作の優先順位を示す。署名・確認のタップ領域は縮めない。 */
+.app-header { background:#fff; border-bottom:1px solid var(--color-border); box-shadow:none; padding:12px 20px; }
+.app-header h1 { color:var(--color-text); font-size:18px; text-shadow:none; }
+.app-credit { color:#526575; background:transparent; border-radius:0; font-weight:normal; padding:0; }
+.app-credit:hover { background:transparent; text-decoration:underline; }
+.tool-button, .tool-button-small { border:1px solid var(--color-border); box-shadow:none; min-height:40px; padding:8px 12px; font-size:13px; background:#fff; color:var(--color-text); transition:background .15s; }
+.tool-button:hover, .tool-button-small:hover { transform:none; box-shadow:none; background:#eef2f5; }
+.tool-button-primary { background:var(--color-primary); color:#fff; border-color:var(--color-primary); }
+.tool-button-danger { color:var(--color-danger); }
+.big-button { border-radius:8px; box-shadow:none; }
+.big-button:hover { transform:none; box-shadow:none; }
+.signing-card, .signing-modal-box, .modal-box, .template-card { border:1px solid var(--color-border); box-shadow:0 2px 8px rgba(25,40,55,.06); }
+.palette-button, .edit-popup, .welcome-step { background:#fff; border-radius:6px; }
+.welcome-step-emoji { display:none; }
+button:focus-visible, summary:focus-visible { outline:3px solid #759dbf; outline-offset:3px; }
+@media (max-width:600px) { .app-header { padding:10px 12px; } .app-credit { font-size:11px; } .signing-stage { padding:16px; } .signing-card { padding:24px 20px; } }
+
+.big-button-secondary { background:#fff; border:1px solid var(--color-border); color:var(--color-text); }
+.palette-button:hover { background:#eef2f5; }
+.palette-button.is-armed { border-color:var(--color-primary); background:#e9f0f6; }
+
+/* 書類が主役の、落ち着いた対面契約ワークスペース。 */
+:root { --color-primary:#244c68; --color-primary-dark:#173b53; --color-bg:#f5f6f7; --color-border:#d7dfe4; --color-accent:#287d72; }
+.app-header { padding:14px 24px; }
+.app-header h1 { border-left:4px solid var(--color-accent); padding-left:10px; letter-spacing:.025em; }
+.app-credit { color:#687885; }
+.toolbar { gap:8px; }
+.toolbar .tool-button { background:transparent; border-color:transparent; color:#465967; }
+.toolbar .tool-button:hover { background:#edf2f4; color:var(--color-primary-dark); }
+#btn-nav-draft-save { border-color:#b4ccc7; background:#f1f7f5; color:#24665d; }
+#screen-home .screen-inner { max-width:1000px; padding:32px; }
+.home-list-title { font-size:18px; margin:0 0 10px; letter-spacing:.02em; }
+.home-tools-title { margin:28px 0 10px; font-size:14px; color:#556976; }
+.backup-actions { margin-top:0; padding-top:14px; border-top:1px solid var(--color-border); }
+.template-grid { gap:18px; }
+.template-card { border-radius:12px; padding:14px; gap:10px; box-shadow:0 3px 12px rgba(28,48,60,.045); }
+.template-card-thumb { padding:8px; background:#f0f3f4; border-color:#e1e7eb; border-radius:8px; }
+.template-card-thumb img { object-fit:contain; filter:drop-shadow(0 2px 4px rgba(20,40,50,.12)); }
+.template-card-name { font-size:15px; line-height:1.5; }
+.template-card-meta { font-size:12px; color:#73818b; }
+.template-card-actions .tool-button-primary { background:var(--color-primary); border-color:var(--color-primary); color:#fff; min-height:44px; }
+.template-card-actions .tool-button-primary:hover { background:#173b53; }
+.template-card-actions .tool-button-small:not(.tool-button-primary) { border-color:transparent; background:transparent; color:#526573; }
+.thumb-size-control { justify-content:flex-end; }
+.thumb-size-btn { padding:6px 12px; min-height:32px; background:#eaf0f2; }
+.signing-card { border-radius:14px; border-color:#dae2e7; box-shadow:0 6px 24px rgba(27,51,68,.06); }
+.signing-card h2 { font-weight:650; color:#203e50; }
+.big-button { border-radius:10px; min-height:60px; }
+.big-button-secondary { background:#f7f9fa; font-weight:500; }
+.signing-modal-box { border-radius:14px; }
+.contract-progress { display:flex; list-style:none; padding:0; margin:0 0 26px; gap:6px; }
+.contract-progress li { flex:1; font-size:13px; text-align:center; padding:0 0 10px; border-bottom:3px solid #e4e9ec; color:#72808c; }
+.contract-progress .is-current { border-color:var(--color-primary); color:var(--color-primary-dark); font-weight:700; }
+.contract-progress .is-done { border-color:var(--color-accent); color:#276c63; }
+.welcome-modal-box { max-width:840px; padding:24px 30px; scroll-behavior:smooth; }
+.help-header { display:flex; align-items:center; justify-content:space-between; gap:20px; position:sticky; top:-24px; margin:-24px -30px 18px; padding:20px 30px 14px; background:#fff; border-bottom:1px solid #e5eaed; z-index:1; }
+.help-header h3 { margin:0; }
+.welcome-lead { font-size:16px; line-height:1.8; }
+.help-contents { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:0 0 24px; }
+.help-contents button { background:#f3f6f7; border:1px solid #e1e7ea; border-radius:6px; padding:10px 12px; text-align:left; font:inherit; font-size:14px; color:#2a536a; cursor:pointer; }
+.help-contents button:hover { background:#eaf1f3; }
+.help-sections details { border-top:1px solid #dbe3e8; padding:16px 0; scroll-margin-top:80px; }
+.help-sections summary { font-size:18px; font-weight:600; color:#234c66; cursor:pointer; line-height:1.6; }
+.help-sections p, .help-sections li { font-size:16px; line-height:1.85; }
+.help-sections ol { padding-left:26px; }
+.help-sections li { padding-left:4px; margin:14px 0; }
+.help-note { border-left:3px solid #79a69e; padding:12px 16px; background:#f2f7f5; color:#405e5b; }
+.help-sections table { width:100%; border-collapse:collapse; margin-top:20px; font-size:15px; line-height:1.8; }
+.help-sections th, .help-sections td { padding:12px; border-bottom:1px solid #e2e7eb; text-align:left; vertical-align:top; }
+.help-sections th { width:32%; background:#f5f7f8; font-weight:600; }
+.visually-hidden { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+@media (max-width:600px) {
+  .app-header { padding:12px; } #screen-home .screen-inner { padding:20px 16px; }
+  .welcome-modal-box { padding:20px; } .help-header { top:-20px; margin:-20px -20px 18px; padding:16px 20px; }
+  .help-contents { grid-template-columns:1fr; } .help-sections th { width:36%; }
+}
+
+.template-card-actions .tool-button-small.tool-button-danger { color:var(--color-danger); }
+@media (prefers-reduced-motion:reduce) { .welcome-modal-box { scroll-behavior:auto; } }
+
+/* キャッチコピーではなく、画面の構造と書類の質感で見分けやすくする。 */
+#screen-home { background:#e9eff3; }
+.template-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:22px; }
+.template-heading h2 { margin:0; font-size:25px; letter-spacing:.035em; }
+.template-heading button { min-height:48px; padding:12px 18px; box-shadow:0 3px 8px rgba(29,66,91,.12); }
+.template-grid { grid-template-columns:repeat(auto-fill,minmax(min(100%,var(--card-min-width,240px)),1fr)); gap:22px; }
+.template-card { padding:0; overflow:hidden; border:1px solid #cbd8e0; background:#fff; box-shadow:0 6px 16px rgba(36,68,88,.085); }
+.template-card-thumb { width:100%; aspect-ratio:1.28; border:0; border-bottom:1px solid #dbe4ea; border-radius:0; padding:20px 34px; background:#dce6ed; }
+.template-card:nth-child(3n+2) .template-card-thumb { background:#dfeae6; }
+.template-card:nth-child(3n) .template-card-thumb { background:#e9e4dc; }
+.template-card-thumb img { width:auto; max-width:100%; height:100%; background:#fff; filter:drop-shadow(0 3px 5px rgba(29,53,66,.22)); }
+.template-card-name { margin:6px 18px 0; font-size:17px; }
+.template-card-meta { margin:0 18px; }
+.template-card-actions { padding:8px 18px 16px; display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.template-card-actions .tool-button-primary { grid-column:1 / -1; }
+.resume-panel { display:grid; grid-template-columns:1fr 1fr; gap:0; margin-top:28px; border:1px solid #c9d8df; border-radius:12px; background:#f8fbfc; overflow:hidden; }
+.resume-panel > div { padding:20px; }
+.resume-panel > div + div { border-left:1px solid #d9e3e8; background:#eef6f3; }
+.resume-panel h3 { font-size:16px; margin:0 0 10px; }
+.resume-panel p { margin:0 0 14px; color:#526875; font-size:13px; line-height:1.8; min-height:70px; }
+.resume-panel button { width:100%; min-height:44px; }
+.resume-panel button:disabled { color:#85949e; background:#edf1f3; cursor:not-allowed; }
+.backup-actions { background:#f7fafb; border:1px solid #d4dfe6; border-radius:10px; padding:16px; }
+.side-panel { background:#f1f5f8; }
+.side-panel > h2 { padding-bottom:10px; border-bottom:2px solid #ccdbe3; }
+.contract-progress { background:#f0f5f7; margin:-8px -8px 26px; padding:16px 12px 8px; border-radius:10px; }
+@media(max-width:600px) { .template-heading { align-items:flex-start; } .template-heading h2 { font-size:22px; } .template-heading button { font-size:12px; padding:10px; } .resume-panel { grid-template-columns:1fr; } .resume-panel > div + div { border-left:0; border-top:1px solid #d9e3e8; } .resume-panel p { min-height:0; } }
+
+/* ヘッダーで画面の上端を締め、本文と操作の境界を明確にする。 */
+.app-header { background:#203e54; border-bottom:1px solid #152e40; box-shadow:0 2px 8px rgba(20,40,55,.12); }
+.app-header h1 { color:#fff; border-left-color:#82bdb2; }
+.app-credit { color:#c2d1dc; }
+.app-credit:hover { color:#fff; }
+.toolbar .tool-button { color:#e0eaf1; }
+.toolbar .tool-button:hover { background:#35566d; color:#fff; }
+#btn-nav-draft-save { background:#315e63; border-color:#659694; color:#fff; }
+#btn-nav-draft-save:hover { background:#3d7175; }
+.app-header button:focus-visible, .app-credit:focus-visible { outline:3px solid #a4d1e5; outline-offset:3px; }
+
+:root { color-scheme:light; }
+.theme-switch { display:flex; gap:2px; margin-left:auto; padding:3px; border:1px solid #668194; border-radius:8px; }
+.theme-switch button { border:0; border-radius:5px; min-height:32px; padding:5px 10px; font:inherit; font-size:12px; color:#dce7ee; background:transparent; cursor:pointer; }
+.theme-switch button[aria-pressed="true"] { background:#e7eff4; color:#203e54; font-weight:600; }
+html[data-theme="dark"] { color-scheme:dark; --color-bg:#121c25; --color-card:#1d2b37; --color-text:#e2eaf0; --color-border:#405361; --color-primary:#447e9f; --color-primary-dark:#bfdcee; --color-accent:#8fcbbd; --color-danger:#ffb3a8; }
+html[data-theme="dark"] :is(#screen-home,.canvas-area,.pdf-stage-wrap,.signing-doc-stage) { background:#121c25; }
+html[data-theme="dark"] :is(.side-panel,.backup-actions,.resume-panel,.contract-progress) { background:#1d2b37; border-color:#405361; }
+html[data-theme="dark"] :is(.template-card,.signing-card,.signing-modal-box,.modal-box,.edit-popup,.palette-button,.help-header) { background:#1d2b37; border-color:#405361; }
+html[data-theme="dark"] :is(.template-card-thumb,.template-card:nth-child(3n+2) .template-card-thumb,.template-card:nth-child(3n) .template-card-thumb) { background:#2b404c; border-color:#405361; }
+html[data-theme="dark"] :is(.template-heading h2,.signing-card h2,.signing-modal-box h3,.help-sections summary,.side-panel h2,.edit-popup h3) { color:#d7eaf5; }
+html[data-theme="dark"] :is(.screen-hint,.side-panel-hint,.template-card-meta,.resume-panel p,.signing-progress,.signing-filename,.field-label,.palette-button-hint) { color:#b8c9d5; }
+html[data-theme="dark"] :is(.signing-field-label input,.signing-field-label textarea,.signing-field-label select,.field-label input,.field-label textarea,.field-label select,.modal-box input) { background:#14212c; color:#e2eaf0; border-color:#617988; }
+html[data-theme="dark"] :is(.tool-button-small,.big-button-secondary,.signing-role-toggle-btn,.help-contents button,.zoom-btn,.thumb-size-btn) { background:#2b3d4b; color:#d9e7ef; border-color:#526c7c; }
+html[data-theme="dark"] :is(.tool-button-small:hover,.palette-button:hover,.help-contents button:hover) { background:#354e60; }
+html[data-theme="dark"] :is(.template-card-actions .tool-button-primary,.big-button:not(.big-button-secondary),.tool-button-primary,.thumb-size-btn.is-active,.signing-role-toggle-btn.is-active) { background:#356884; color:#fff; }
+html[data-theme="dark"] .template-card-actions .tool-button-small:not(.tool-button-primary) { color:#c3d7e4; }
+html[data-theme="dark"] .template-card-actions .tool-button-small.tool-button-danger { color:#ffb3a8; }
+html[data-theme="dark"] :is(.resume-panel > div + div,.help-note,.signer-missing-reasons.is-ready,.verification-result:not(:empty)) { background:#213c39; color:#d0e8e0; border-color:#568477; }
+html[data-theme="dark"] :is(.authority-required,.signer-missing-reasons,.field-link-warning,.void-result,.verification-result[data-status="mismatch"],.verification-result[data-status="partial"]) { background:#413628; color:#ffe2b8; border-color:#a58851; }
+html[data-theme="dark"] :is(.help-sections details,.help-sections th,.help-sections td,.side-panel > h2) { border-color:#405361; }
+html[data-theme="dark"] .help-sections th { background:#273b49; }
+html[data-theme="dark"] .contract-progress .is-current { color:#d7eaf5; border-color:#8cbada; }
+html[data-theme="dark"] .contract-progress .is-done { color:#b5e5d9; border-color:#87c9b8; }
+html[data-theme="dark"] .resume-panel button:disabled { background:#23323e; color:#99aebd; }
+html[data-theme="dark"] .signature-pad-wrap { background:#fff; border-color:#819aa9; }
+html[data-theme="dark"] .canvas-toolbar { background:#253745; color:#d9e7ef; }
+html[data-theme="dark"] .save-toast { background:#d9e7ef; color:#14212c; }
+@media(max-width:600px) { .theme-switch { margin-left:0; } }
+html[data-theme="dark"] :is(.home-tools-title,.thumb-size-label,.case-list-empty) { color:#b8c9d5; }
+html[data-theme="dark"] :is(.signing-checkbox-row,.signing-doc-wrap) { background:#2b3d4b; color:#e2eaf0; }
+html[data-theme="dark"] .field-box-label { color:#244c68; background:#fff; }
+.signature-tools { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:12px 0 8px; }
+.signature-tools .signing-expand-toggle { margin:0 0 0 auto; }
+.signature-tools button { min-height:44px; }
+.signature-tools .signature-clear { background:transparent; color:#8a433a; }
+.signature-tools button:disabled { opacity:.5; cursor:not-allowed; }
+html[data-theme="dark"] .signature-tools .signature-clear { color:#ffc2b8; }
+
+.field-signature-preview { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; pointer-events:none; transform-origin:center; }
+#signature-test-canvas { display:block; width:100%; height:250px; background:#fff; border:2px solid #647d91; border-radius:8px; touch-action:none; user-select:none; -webkit-user-select:none; }
+
+.field-assignment-target { padding:10px 12px; margin:8px 0 12px; border-left:3px solid #42768c; border-radius:4px; background:#e8f1f5; color:#25485a; font-size:13px; line-height:1.6; }
+html[data-theme="dark"] .field-assignment-target { background:#263e4b; color:#d7eaf3; }
+
+.signing-address-summary { white-space:pre-line; overflow-wrap:anywhere; }
+
+.storage-startup-error { padding: 20px; margin: 16px; border: 1px solid #ba6847; background: #fff2e9; color: #612d1b; }

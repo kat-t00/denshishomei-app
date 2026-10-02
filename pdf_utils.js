@@ -9,7 +9,17 @@ const PdfUtils = (() => {
   const DISPLAY_SCALE = 1.4; // 画面表示用の標準の拡大率（PDFのポイント → 画面ピクセル。ズーム100%の基準値）
 
   async function loadPdf(arrayBuffer) {
-    return pdfjsLib.getDocument({ data: arrayBuffer, isEvalSupported: false }).promise;
+    // PDF.jsの既知の脆弱性(CVE-2024-4367)への公式回避策。
+    // 外部から受け取ったPDFによる動的コード生成を許可しない。
+    const doc = await pdfjsLib.getDocument({ data: arrayBuffer, isEvalSupported: false }).promise;
+    for (let number = 1; number <= doc.numPages; number++) {
+      const page = await doc.getPage(number);
+      if (page.rotate % 360 !== 0 || page.view[0] !== 0 || page.view[1] !== 0) {
+        await doc.destroy();
+        throw new Error(number + 'ページ目に回転または特殊な切り抜き情報があります。配置と印字のずれを防ぐため、回転・切り抜き情報のないPDFへ変換してから読み込んでください。');
+      }
+    }
+    return doc;
   }
 
   // ページを実際に描画せず、PDF上の実サイズ（ポイント単位）だけを取得する（ズームのfit計算に使う）

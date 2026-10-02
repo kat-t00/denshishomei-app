@@ -21,7 +21,7 @@ const ExportModule = (() => {
   // audioBytesは任意(重要事項説明の録音を添付した場合のみ)。ハッシュは既にsession側に
   // 記録済み(finalizeSigning側でPDF生成前に計算しておく必要があるため、ここでは計算しない)
   async function buildSignedArtifacts(template, session, finalPdfBytes, audioBytes, audioMimeType) {
-    const auditRecord = await Audit.buildAuditRecord(session, finalPdfBytes);
+    const auditRecord = await Audit.buildAuditRecord(session, finalPdfBytes, template.name);
     const recipientPart = sanitizeForFileName(session.recipientName);
     return {
       pdfBytes: finalPdfBytes,
@@ -30,7 +30,7 @@ const ExportModule = (() => {
       auditJson: JSON.stringify(auditRecord, null, 2),
       hash: auditRecord.finalPdfHashSha256,
       fileNameBase: (recipientPart ? recipientPart + '_' : '')
-        + (template.name || '契約書') + '_' + session.verificationId.slice(0, 8),
+        + (sanitizeForFileName(template.name) || '契約書') + '_' + session.verificationId.slice(0, 8),
     };
   }
 
@@ -47,7 +47,20 @@ const ExportModule = (() => {
     document.body.appendChild(a);
     a.click();
     a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
+  function listArtifactFiles(artifacts) {
+    const files = [
+      { label: '署名済みPDF', bytes: artifacts.pdfBytes, name: artifacts.fileNameBase + '.pdf', mimeType: 'application/pdf' },
+      { label: '監査記録', bytes: new TextEncoder().encode(artifacts.auditJson), name: artifacts.fileNameBase + '_監査記録.json', mimeType: 'application/json' },
+    ];
+    if (artifacts.audioBytes) {
+      files.push({ label: '説明音声', bytes: artifacts.audioBytes,
+        name: artifacts.fileNameBase + '_説明音声.' + audioFileExtension(artifacts.audioMimeType),
+        mimeType: artifacts.audioMimeType || 'audio/webm' });
+    }
+    return files;
   }
 
   // MVPのデフォルトの保存先: 端末へのダウンロード。
@@ -81,10 +94,23 @@ const ExportModule = (() => {
 
   function importTemplatesBackup(file, onDone) {
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onerror = () => onDone(new Error('バックアップファイルを読み取れませんでした。'), 0);
+    reader.onload = async () => {
       try {
         const data = JSON.parse(reader.result);
-        const count = TemplateStore.importAll(data);
+        if (!Array.isArray(data)) throw new Error('バックアップファイルの形式が正しくありません。');
+        for (const template of data) {
+          if (!template || !Array.isArray(template.pages) || typeof template.pdfBase64 !== 'string') throw new Error('書式の形式が正しくありません。');
+          const doc = await PdfUtils.loadPdf(PdfUtils.base64ToArrayBuffer(template.pdfBase64));
+          try {
+            if (doc.numPages !== template.pages.length) throw new Error('PDFのページ数と書式の設定が一致しません。');
+            for (let index = 0; index < doc.numPages; index++) {
+              const viewport = (await doc.getPage(index + 1)).getViewport({scale:1});
+              if (Math.abs(viewport.width-template.pages[index].widthPt)>0.1 || Math.abs(viewport.height-template.pages[index].heightPt)>0.1) throw new Error('PDFのページサイズと書式の設定が一致しません。');
+            }
+          } finally { doc.destroy(); }
+        }
+        const count = await TemplateStore.importAll(data);
         onDone(null, count);
       } catch (e) {
         onDone(e, 0);
@@ -93,5 +119,5 @@ const ExportModule = (() => {
     reader.readAsText(file);
   }
 
-  return { buildSignedArtifacts, saveArtifacts, downloadSink, downloadBlob, exportTemplatesBackup, importTemplatesBackup, audioFileExtension };
+  return { buildSignedArtifacts, listArtifactFiles, saveArtifacts, downloadSink, downloadBlob, exportTemplatesBackup, importTemplatesBackup, audioFileExtension };
 })();

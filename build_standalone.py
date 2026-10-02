@@ -24,6 +24,7 @@ OUTPUT_HTML = BASE_DIR / "keiyaku_standalone.html"
 OUTPUT_HTML_OFFICE = BASE_DIR / "keiyaku_事務所用.html"
 
 JS_FILES = [
+    "theme.js",
     "models.js",
     "pdf_utils.js",
     "hash_utils.js",
@@ -31,10 +32,12 @@ JS_FILES = [
     "field_editor.js",
     "forms.js",
     "signature_pad.js",
-    "audio_recorder.js",
+    "operator_settings.js",
+    "draft_vault.js",
     "signing_flow.js",
     "pdf_writer.js",
     "audit.js",
+    "verification_view.js",
     "export.js",
     "cloud_drive.js",
     "void_flow.js",
@@ -69,14 +72,15 @@ def build_base_html():
 
     for js_file in JS_FILES + LIB_FILES:
         js_content = (BASE_DIR / js_file).read_text(encoding="utf-8")
-        html = html.replace(
-            f'<script src="{js_file}"></script>',
-            f"<script>\n{js_content}\n</script>",
+        html = re.sub(
+            r'<script src="' + re.escape(js_file) + r'(?:\?[^"<>]*)?"></script>',
+            lambda match: f"<script>\n{js_content}\n</script>",
+            html,
         )
 
     # 本当に1ファイルだけで完結しているか確認する(<script src>が1個でも残っていたら
     # 「別端末にコピーする時にlibフォルダを忘れる」事故がまた起こり得るため厳密にチェックする)
-    remaining = re.findall(r'<script src="([^"]+\.js)"></script>', html)
+    remaining = re.findall(r'<script\b[^>]*\bsrc="([^"]+)"', html)
     if remaining:
         raise RuntimeError(f"インライン化されずに残っている<script src>があります: {remaining}")
     if '<link rel="stylesheet"' in html:

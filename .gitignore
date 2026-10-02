@@ -1,3 +1,6 @@
 .DS_Store
 keiyaku_事務所用.html
 CLAUDE.md
+
+__pycache__/
+*.pyc

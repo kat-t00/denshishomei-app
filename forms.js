@@ -2,12 +2,14 @@
 // pure DOM操作のみ、テンプレート化エンジンは使わない(house styleに合わせる)。
 const Forms = (() => {
   const FIELD_TYPE_OPTIONS = [
-    { type: 'signature', label: '✍️ 署名欄', hint: 'タップすると署名パッドが開き、手書きの署名(画像)が入ります。' },
-    { type: 'date', label: '📅 日付欄', hint: '署名した日付が自動で印字されます(西暦/和暦を選択可)。' },
-    { type: 'name', label: '🈸 氏名欄', hint: '署名した人が入力した名前が、活字(テキスト)で印字されます。手書きの署名欄とセットで置くのがおすすめです。' },
-    { type: 'address', label: '🏠 住所欄', hint: '署名した人が入力した住所が、活字で印字されます。' },
-    { type: 'relationship', label: '👪 続柄欄', hint: 'ご家族代理の場合、入力された続柄(例：長男)が印字されます。' },
-    { type: 'declaration_checkbox', label: '☑️ 確認チェック欄', hint: 'ご家族代理の場合の、代理権限確認チェックの有無を示します。' },
+    { type: 'signature', label: '手書き署名', hint: 'PDFの署名する場所に配置します。書く人は契約時に選びます。' },
+    { type: 'date', label: '日付欄', hint: '署名した日付が自動で印字されます(西暦/和暦を選択可)。' },
+    { type: 'recipient_name', label: '利用者氏名（活字）', hint: 'PDFに署名とは別の氏名欄がある時だけ配置。家族が署名しても利用者本人の名前を印字します。' },
+    { type: 'recipient_address', label: '利用者住所欄', hint: '契約当事者である利用者本人の住所です。家族が署名・代筆しても変わりません。' },
+    { type: 'name', label: '署名者氏名（活字）', hint: 'PDFに署名とは別の氏名欄がある時だけ配置。実際に署名した人の名前を印字します。' },
+    { type: 'address', label: '署名者住所欄', hint: '実際に署名・代筆した人の住所が、活字で印字されます。' },
+    { type: 'relationship', label: '続柄欄', hint: 'ご家族が記入する場合、入力された本人との関係・立場（例：長女、成年後見人）が印字されます。' },
+    { type: 'declaration_checkbox', label: '確認チェック欄', hint: '署名時に確認した内容を示します。' },
   ];
 
   function renderFieldPalette(container, onArmed) {
@@ -16,7 +18,13 @@ const Forms = (() => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'palette-button';
-      btn.textContent = opt.label;
+      const label = document.createElement('span');
+      label.className = 'palette-button-label';
+      label.textContent = opt.label;
+      const hint = document.createElement('span');
+      hint.className = 'palette-button-hint';
+      hint.textContent = opt.hint;
+      btn.append(label, hint);
       btn.title = opt.hint;
       btn.addEventListener('click', () => {
         container.querySelectorAll('.palette-button').forEach(b => b.classList.remove('is-armed'));
@@ -29,7 +37,8 @@ const Forms = (() => {
 
   const ROLE_LABELS = {
     recipient: '利用者本人',
-    family: 'ご家族（代理）',
+    family: 'ご家族（代筆・代理）',
+    additional: '追加の署名者',
   };
 
   function renderFieldEditPanel(container, field, callbacks) {
@@ -43,6 +52,13 @@ const Forms = (() => {
     const title = document.createElement('h3');
     title.textContent = '項目の設定';
     container.appendChild(title);
+    const typeHint = FIELD_TYPE_OPTIONS.find(opt => opt.type === field.type);
+    if (typeHint) {
+      const description = document.createElement('p');
+      description.className = 'side-panel-hint';
+      description.textContent = typeHint.hint;
+      container.appendChild(description);
+    }
 
     // 署名欄は役割をテンプレート側で固定しない(署名時にその場で本人/家族を選んでもらう設計のため)。
     // 氏名欄・住所欄などの付随項目は、代わりに「どの署名欄の項目か」を明示的に紐付ける
@@ -52,9 +68,11 @@ const Forms = (() => {
     if (field.type === 'signature') {
       const roleNote = document.createElement('p');
       roleNote.className = 'side-panel-hint';
-      roleNote.textContent = '署名時に「利用者本人」か「ご家族（代理）」かをその都度選んでいただきます。';
+      roleNote.textContent = callbacks.signingMode === 'legacy'
+        ? '従来の設定では、署名する場面で本人・家族を選びます。'
+        : '署名前に事業者が記入する方を確認します。先頭の署名欄は本人または家族、それ以降は追加の署名者用です。';
       container.appendChild(roleNote);
-    } else {
+    } else if (!['recipient_name','recipient_address'].includes(field.type)) {
       const linkLabel = document.createElement('label');
       linkLabel.className = 'field-label';
       linkLabel.textContent = 'どの署名欄の項目か';
@@ -81,7 +99,7 @@ const Forms = (() => {
       if (signatureFields.length >= 2 && !field.linkedFieldId) {
         const warn = document.createElement('p');
         warn.className = 'side-panel-hint field-link-warning';
-        warn.textContent = '⚠️ 署名欄が複数あります。このままだと印字先が決まらないため、必ず選んでください。';
+        warn.textContent = '署名欄が複数あります。このままだと印字先が決まらないため、必ず選んでください。';
         container.appendChild(warn);
       }
     }
@@ -89,6 +107,14 @@ const Forms = (() => {
     // declaration_checkbox(確認チェック欄)だけは、紐付いた署名欄の中でも
     // 「誰が署名した時に表示するか」をさらに絞れる(例：代理権限確認は家族の時だけ等)
     if (field.type === 'declaration_checkbox') {
+      const printLabel = document.createElement('label'); printLabel.className = 'field-label'; printLabel.textContent = 'PDFに印字する内容';
+      const printSelect = document.createElement('select');
+      [['check','✓ のみ（小さなチェック枠用）'],['confirmed','✓ 確認済み（文字の枠用）']].forEach(([value,text]) => { const option = document.createElement('option'); option.value=value; option.textContent=text; printSelect.appendChild(option); });
+      printSelect.value = field.checkPrintStyle || 'confirmed';
+      printSelect.addEventListener('change', () => { field.checkPrintStyle = printSelect.value; callbacks.onChange(); });
+      printLabel.appendChild(printSelect); container.appendChild(printLabel);
+      const explanation = document.createElement('p'); explanation.className = 'side-panel-hint';
+      explanation.textContent = '契約時にチェックした場合だけ印字します。「確認する内容」には、確認してもらう文を入力してください。同じ文の項目は契約時に1つのチェックにまとめます。別々の同意には、それぞれ異なる文を設定してください。'; container.appendChild(explanation);
       const roleLabel = document.createElement('label');
       roleLabel.className = 'field-label';
       roleLabel.textContent = '表示条件（誰が署名した時に確認させるか）';
@@ -96,7 +122,7 @@ const Forms = (() => {
       Object.keys(ROLE_LABELS).concat(['either']).forEach(role => {
         const option = document.createElement('option');
         option.value = role;
-        option.textContent = role === 'either' ? 'どちらでも' : ROLE_LABELS[role];
+        option.textContent = role === 'either' ? '立場にかかわらず表示' : ROLE_LABELS[role];
         if (field.assignedRole === role) option.selected = true;
         roleSelect.appendChild(option);
       });
@@ -108,14 +134,15 @@ const Forms = (() => {
       container.appendChild(roleLabel);
     }
 
-    if (field.type === 'name' || field.type === 'relationship' || field.type === 'declaration_checkbox' || field.type === 'address') {
+    // 署名欄にも目的のラベルを付け、署名前の確認で識別できるようにする。
+    {
       const labelLabel = document.createElement('label');
       labelLabel.className = 'field-label';
-      labelLabel.textContent = '項目の表示ラベル';
+      labelLabel.textContent = field.type === 'declaration_checkbox' ? '確認する内容（契約時に表示）' : '項目の表示ラベル';
       const labelInput = document.createElement('input');
       labelInput.type = 'text';
       labelInput.value = field.label || '';
-      labelInput.placeholder = '例：ご本人との続柄';
+      labelInput.placeholder = field.type === 'declaration_checkbox' ? '例：重要事項の説明を受け、内容に同意しました' : field.type === 'signature' ? '例：利用者の契約同意、家族の確認' : '例：利用者の氏名';
       labelInput.addEventListener('input', () => {
         field.label = labelInput.value;
         callbacks.onChange();
@@ -153,18 +180,41 @@ const Forms = (() => {
     if (field.type !== 'signature') {
       const fontSizeLabel = document.createElement('label');
       fontSizeLabel.className = 'field-label';
-      fontSizeLabel.textContent = '文字サイズ（pt）';
+      fontSizeLabel.textContent = '文字サイズ（pt・枠に合わせて縮小）';
       const fontSizeInput = document.createElement('input');
       fontSizeInput.type = 'number';
       fontSizeInput.min = '6';
       fontSizeInput.max = '36';
       fontSizeInput.value = field.fontSize || 11;
-      fontSizeInput.addEventListener('input', () => {
-        field.fontSize = parseInt(fontSizeInput.value, 10) || 11;
-        callbacks.onChange();
-      });
+      function setSize(value) {
+        const size = Number(value);
+        if (!Number.isFinite(size) || size < 6 || size > 36) return;
+        field.fontSize = size; fontSizeInput.value = size; slider.value = size; callbacks.onChange();
+      }
+      fontSizeInput.step = '0.5';
+      fontSizeInput.addEventListener('input', () => setSize(fontSizeInput.value));
       fontSizeLabel.appendChild(fontSizeInput);
       container.appendChild(fontSizeLabel);
+      const slider = document.createElement('input'); slider.type = 'range';
+      slider.min = '6'; slider.max = '36'; slider.step = '0.5'; slider.value = fontSizeInput.value;
+      slider.setAttribute('aria-label','文字サイズを調整');
+      slider.addEventListener('input', () => setSize(slider.value)); container.append(slider);
+      const hint = document.createElement('p');
+      hint.className = 'side-panel-hint';
+      hint.textContent = ['address','recipient_address'].includes(field.type)
+        ? '住所は枠の高さに合わせて折り返します。6ptでも収まらない場合は出力を止めます。試し印字でご確認ください。'
+        : 'PDF出力に近い印字見本が枠内に表示されます。日本語フォントや実際の文字量は「試し印字」で最終確認してください。';
+      container.appendChild(hint);
+    }
+
+    if (['address','recipient_address'].includes(field.type)) {
+      const rowsLabel = document.createElement('label'); rowsLabel.className = 'field-label'; rowsLabel.textContent = '住所欄の行数（枠の高さ）';
+      const rowsSelect = document.createElement('select');
+      [['custom','自由調整（現在の高さを維持）'],['2','2行分：住所＋建物名'],['3','3行分：長い住所・建物名'],['4','4行分：さらに余裕を持たせる']].forEach(([value,text])=>{const option=document.createElement('option');option.value=value;option.textContent=text;rowsSelect.appendChild(option);});
+      rowsSelect.value = field.addressRows ? String(field.addressRows) : 'custom';
+      rowsSelect.addEventListener('change',()=>{ if(rowsSelect.value==='custom')delete field.addressRows;else field.addressRows=Number(rowsSelect.value);callbacks.onChange(); });
+      rowsLabel.appendChild(rowsSelect);container.appendChild(rowsLabel);
+      const rowsHint=document.createElement('p');rowsHint.className='side-panel-hint';rowsHint.textContent='行数を選ぶと、文字サイズに合わせて枠の高さを調整します。文字サイズを変えたときも追従します。枠の角をドラッグすると自由調整へ戻ります。';container.appendChild(rowsHint);
     }
 
     // 署名欄は活字ではなく手書き画像なので、実際に描かれた署名の大きさによっては
@@ -179,12 +229,20 @@ const Forms = (() => {
       scaleInput.min = '50';
       scaleInput.max = '200';
       scaleInput.value = field.signatureScale || 100;
-      scaleInput.addEventListener('input', () => {
-        field.signatureScale = parseInt(scaleInput.value, 10) || 100;
-        callbacks.onChange();
-      });
+      const scaleSlider = document.createElement('input'); scaleSlider.type = 'range'; scaleSlider.min = '50'; scaleSlider.max = '200'; scaleSlider.step = '1'; scaleSlider.value = scaleInput.value;
+      scaleSlider.setAttribute('aria-label','署名の表示サイズを調整');
+      function setSignatureSize(value) {
+        const size = Number(value); if (!Number.isFinite(size) || size < 50 || size > 200) return;
+        field.signatureScale = size; scaleInput.value = size; scaleSlider.value = size; callbacks.onChange();
+      }
+      scaleInput.addEventListener('input', () => setSignatureSize(scaleInput.value));
+      scaleSlider.addEventListener('input', () => setSignatureSize(scaleSlider.value));
       scaleLabel.appendChild(scaleInput);
-      container.appendChild(scaleLabel);
+      container.append(scaleLabel,scaleSlider);
+      const hint = document.createElement('p');
+      hint.className = 'side-panel-hint';
+      hint.textContent = '100%を超えると枠からはみ出します。隣の文字との重なりを試し印字で確認してください。';
+      container.appendChild(hint);
     }
 
     if (field.type === 'signature') {
@@ -193,14 +251,20 @@ const Forms = (() => {
       orderLabel.textContent = '署名する順番';
       const orderInput = document.createElement('input');
       orderInput.type = 'number';
-      orderInput.min = '1';
+      orderInput.min = '1'; orderInput.max = String(signatureFields.length);
       orderInput.value = field.signOrder;
       orderInput.addEventListener('input', () => {
-        field.signOrder = parseInt(orderInput.value, 10) || 1;
-        callbacks.onChange();
+        const position = Number(orderInput.value);
+        if (!Number.isInteger(position) || position < 1 || position > signatureFields.length) return;
+        callbacks.onOrderChange(field, position);
       });
       orderLabel.appendChild(orderInput);
       container.appendChild(orderLabel);
+      const test = document.createElement('button'); test.type = 'button'; test.className = 'tool-button';
+      test.textContent = 'この欄で試し書き'; test.addEventListener('click', () => callbacks.onSignatureTest(field));
+      container.appendChild(test);
+      const testHint = document.createElement('p'); testHint.className = 'side-panel-hint';
+      testHint.textContent = '実際に書いた筆跡を、この枠と完成PDFの見本で確認します。筆跡はテンプレートに保存されません。'; container.appendChild(testHint);
     }
 
     const requiredRow = document.createElement('label');
@@ -215,17 +279,20 @@ const Forms = (() => {
     requiredRow.appendChild(requiredInput);
     requiredRow.appendChild(document.createTextNode('必須項目にする'));
     container.appendChild(requiredRow);
+    if (field.type === 'signature' && callbacks.signingMode !== 'legacy') requiredRow.hidden = true;
     if (field.type === 'signature') {
       const requiredHint = document.createElement('p');
       requiredHint.className = 'side-panel-hint';
-      requiredHint.textContent = 'OFFにすると、署名時に「この署名は不要」としてその場でスキップできるようになります（例：本人が署名できたのでご家族の署名は不要、という場合）。';
+      requiredHint.textContent = callbacks.signingMode === 'legacy'
+        ? 'OFFにすると、その場でこの署名を省略できます。'
+        : '署名の要否は「この書式の署名方法」と署名前の確認で決まります。';
       container.appendChild(requiredHint);
     }
 
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
     deleteBtn.className = 'popup-delete-button';
-    deleteBtn.textContent = '🗑 この項目を削除';
+    deleteBtn.textContent = 'この項目を削除';
     deleteBtn.addEventListener('click', () => callbacks.onDelete());
     container.appendChild(deleteBtn);
   }
@@ -268,22 +335,22 @@ const Forms = (() => {
 
       const useBtn = document.createElement('button');
       useBtn.type = 'button';
-      useBtn.className = 'tool-button-small';
-      useBtn.textContent = '📝 これで署名する';
+      useBtn.className = 'tool-button-small tool-button-primary';
+      useBtn.textContent = 'これで署名する';
       useBtn.addEventListener('click', () => callbacks.onUse(t.id));
       actions.appendChild(useBtn);
 
       const editBtn = document.createElement('button');
       editBtn.type = 'button';
       editBtn.className = 'tool-button-small';
-      editBtn.textContent = '✏️ 署名欄を編集';
+      editBtn.textContent = '署名欄を編集';
       editBtn.addEventListener('click', () => callbacks.onEdit(t.id));
       actions.appendChild(editBtn);
 
       const deleteBtn = document.createElement('button');
       deleteBtn.type = 'button';
       deleteBtn.className = 'tool-button-small tool-button-danger';
-      deleteBtn.textContent = '🗑 削除';
+      deleteBtn.textContent = '削除';
       deleteBtn.addEventListener('click', () => callbacks.onDelete(t.id));
       actions.appendChild(deleteBtn);
 
