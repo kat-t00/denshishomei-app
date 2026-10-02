@@ -1316,10 +1316,13 @@ html[data-theme="dark"] .signature-tools .signature-clear { color:#ffc2b8; }
 .field-signature-preview { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; pointer-events:none; transform-origin:center; }
 #signature-test-canvas { display:block; width:100%; height:250px; background:#fff; border:2px solid #647d91; border-radius:8px; touch-action:none; user-select:none; -webkit-user-select:none; }
 
+.field-assignment-target { padding:10px 12px; margin:8px 0 12px; border-left:3px solid #42768c; border-radius:4px; background:#e8f1f5; color:#25485a; font-size:13px; line-height:1.6; }
+html[data-theme="dark"] .field-assignment-target { background:#263e4b; color:#d7eaf3; }
+
 </style>
 </head>
 <body>
-<div style="padding:8px 20px;background:#203e54;color:#dae9f0;border-bottom:1px solid #547182;font-size:12px;text-align:center">実務フロー検証版・署名の試し書きとテンプレート設定を改善｜架空の情報でお試しください。</div>
+<div style="padding:8px 20px;background:#203e54;color:#dae9f0;border-bottom:1px solid #547182;font-size:12px;text-align:center">実務フロー検証版・署名者項目の自動割当を改善｜架空の情報でお試しください。</div>
   <header class="app-header">
     <div class="app-header-top">
       <h1>電子契約アプリ</h1>
@@ -1391,6 +1394,7 @@ html[data-theme="dark"] .signature-tools .signature-clear { color:#ffc2b8; }
           <label class="checkbox-row"><input type="checkbox" id="toggle-print-preview" checked />印字見本を表示</label>
           <p class="side-panel-hint">ボタンを押してから、PDF上をドラッグして四角を描くと項目が追加されます。</p>
           <p class="side-panel-hint">まず「手書き署名」を配置。PDFに署名とは別の氏名欄がある場合だけ、氏名（活字）を追加します。署名が氏名欄を兼ねる書式なら追加不要です。</p>
+          <p id="field-assignment-target" class="field-assignment-target" role="status"></p>
           <div id="field-palette" class="fixture-palette"></div>
           <div id="field-edit-panel" class="edit-popup"></div>
           <h2>テンプレートとして保存</h2>
@@ -2195,6 +2199,7 @@ const FieldEditor = (() => {
   let currentPageIndex = 0;
   let zoom = null;
   let armedFieldType = null;
+  let activeSignatureId = null;
   let onFieldSelected = null; // (field) => void
   let onPagesChanged = null; // () => void  (フィールドの追加・移動・削除の度に呼ぶ)
 
@@ -2225,6 +2230,7 @@ const FieldEditor = (() => {
     pdfDoc = await PdfUtils.loadPdf(arrayBuffer);
     pages = [];
     signaturePreviews.clear();
+    activeSignatureId = null;
     for (let i = 1; i <= pdfDoc.numPages; i++) {
       const size = await PdfUtils.getPageSize(pdfDoc, i);
       pages.push({ widthPt: size.widthPt, heightPt: size.heightPt, fields: [] });
@@ -2243,6 +2249,7 @@ const FieldEditor = (() => {
       fields: p.fields.slice(),
     }));
     signaturePreviews.clear();
+    activeSignatureId = null;
     normalizeSignatureOrder();
     currentPageIndex = 0;
     await renderCurrentPage();
@@ -2290,6 +2297,18 @@ const FieldEditor = (() => {
 
   function setArmedFieldType(type) {
     armedFieldType = type;
+  }
+
+  function getActiveSignatureField() {
+    const signatures = getSignatureFields();
+    return signatures.find(field => field.id === activeSignatureId) || (signatures.length === 1 ? signatures[0] : null);
+  }
+  function setActiveSignatureForField(field) {
+    if (!field) return;
+    if (field.type === 'signature') activeSignatureId = field.id;
+    else if (!['recipient_name','recipient_address'].includes(field.type) && field.linkedFieldId) {
+      if (getSignatureFields().some(signature => signature.id === field.linkedFieldId)) activeSignatureId = field.linkedFieldId;
+    }
   }
 
   function normalizeSignatureOrder() {
@@ -2434,6 +2453,7 @@ const FieldEditor = (() => {
   }
 
   function selectField(field) {
+    setActiveSignatureForField(field);
     overlayEl.querySelectorAll('.field-box').forEach(el => el.classList.remove('is-selected'));
     const el = overlayEl.querySelector('[data-field-id="' + field.id + '"]');
     if (el) el.classList.add('is-selected');
@@ -2578,11 +2598,11 @@ const FieldEditor = (() => {
         x: rect.x, y: rect.y, width: rect.width, height: rect.height,
         signOrder: getSignatureFields().length + 1,
       });
-      // 署名欄が1つしか無いテンプレートが標準形なので、その場合だけ自動で紐付ける
-      // (手間ゼロにする)。署名欄が2つ以上ある場合は事業所に明示的に選んでもらう
-      if (field.type !== 'signature') {
-        const sigFields = getSignatureFields();
-        if (sigFields.length === 1) field.linkedFieldId = sigFields[0].id;
+      // 直前に選択・配置した署名欄の項目を続けて配置できるようにする。
+      // 利用者本人の氏名・住所は、記入者に依存しない共通情報として扱う。
+      if (!['signature','recipient_name','recipient_address'].includes(field.type)) {
+        const signature = getActiveSignatureField();
+        if (signature) field.linkedFieldId = signature.id;
       }
       page.fields.push(field);
       renderFieldBoxes();
@@ -2595,6 +2615,7 @@ const FieldEditor = (() => {
     const page = pages[currentPageIndex];
     page.fields = page.fields.filter(f => f.id !== fieldId);
     signaturePreviews.delete(fieldId);
+    if (activeSignatureId === fieldId) activeSignatureId = null;
     normalizeSignatureOrder();
     renderFieldBoxes();
     if (onPagesChanged) onPagesChanged();
@@ -2603,7 +2624,7 @@ const FieldEditor = (() => {
   return {
     init, loadPdfBytes, loadFromTemplate,
     zoomIn, zoomOut, fitToView, goToPage,
-    getPageCount, getCurrentPageIndex, getPages, getSignatureFields,
+    getPageCount, getCurrentPageIndex, getPages, getSignatureFields, getActiveSignatureField, setActiveSignatureForField,
     setSignatureOrder, setSignaturePreview, getSignaturePreview, getSignatureSample, setArmedFieldType, attachDrawHandlers, renderFieldBoxes, removeField, setPrintPreviewVisible,
   };
 })();
@@ -4426,6 +4447,10 @@ const VoidFlow = (() => {
     let text = '書式全体の署名欄：' + count + 'つ ／ 確認チェック：' + checks + 'つ（署名者の人数には含みません）。';
     if (count > 1 && q('template-signing-mode').value === 'single') text += ' 署名欄が複数あるため、署名方法を「必要な場合だけ追加の人も署名」または「全員が署名する」に変更してください。';
     q('template-field-summary').textContent = text;
+    const active = FieldEditor.getActiveSignatureField();
+    q('field-assignment-target').textContent = active
+      ? '次の署名者項目の割当先：署名欄 ' + active.signOrder + (active.label ? '（' + active.label + '）' : '') + '。別の人の項目を置くときは、その署名欄を押してください。'
+      : '署名者の項目を置く前に、割り当てたい署名欄を押してください。利用者本人の氏名・住所は共通項目です。';
   }
 
   function updateScribeAdditionalSetting() {
@@ -5689,7 +5714,7 @@ const VoidFlow = (() => {
       '左の「手書き署名」を押してから、PDFの署名する場所をドラッグし、四角い枠を描きます。枠を選ぶと移動・サイズ調整・項目設定ができます。',
       '住所や日付など、書面に必要な項目を同じ方法で配置します。氏名・住所などがどの署名欄に対応するか、設定を確認してください。',
       '文字の枠を選び、文字サイズのバーまたは数値で調整します。枠内の「印字見本」は架空の例で、契約時には入力内容が入ります。見本は表示を切り替えられます。',
-      '複数ページの書面は「次のページ」で移動し、必要なページにも枠を配置します。書式名と署名方法を設定し、左パネル下部の「テンプレートを保存」を押します。署名欄は設定パネルの「この欄で試し書き」から記入し、「書面で確認」で配置結果を確認できます。テストの筆跡は書式に保存されません。「試し印字を確認」では全体の印字位置も確認してください。'
+      '署名者の氏名・住所・続柄・日付・確認チェックは、直前に配置または選択した署名欄へ自動で割り当てます。画面上の「次の署名者項目の割当先」で確認できます。別の人の項目を置くときは、その署名欄を押すか「どの署名欄の項目か」を変更してください。利用者本人の氏名・住所は共通情報です。複数ページの書面は「次のページ」で移動し、必要なページにも枠を配置します。書式名と署名方法を設定し、左パネル下部の「テンプレートを保存」を押します。署名欄は設定パネルの「この欄で試し書き」から記入し、「書面で確認」で配置結果を確認できます。テストの筆跡は書式に保存されません。「試し印字を確認」では全体の印字位置も確認してください。'
     ], note:'テンプレートにはPDF全体が保存されます。実際の利用者名や署名が入ったPDFは原本として使わないでください。印字が収まらない場合は、枠を広げる・高さを増やす・文字サイズを調整します。'},
     {title:'3. 署名欄と氏名・住所欄の使い分け', rows:[
       ['手書き署名','ペンや指で名前を書く場所。氏名を自署する枠が署名欄を兼ねる書面では、この項目を使います。'],
@@ -6011,6 +6036,8 @@ const VoidFlow = (() => {
     applyThumbSize(localStorage.getItem(THUMB_SIZE_STORAGE_KEY) || 'medium');
 
     function openFieldEditPanel(field) {
+      FieldEditor.setActiveSignatureForField(field);
+      updateEditorFieldSummary();
       Forms.renderFieldEditPanel(el.fieldEditPanel, field, {
         signatureFields: FieldEditor.getSignatureFields(),
         signingMode: q('template-signing-mode').value,
