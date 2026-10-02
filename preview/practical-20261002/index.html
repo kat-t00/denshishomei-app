@@ -1147,10 +1147,76 @@ button:focus-visible, summary:focus-visible { outline:3px solid #759dbf; outline
 .palette-button:hover { background:#eef2f5; }
 .palette-button.is-armed { border-color:var(--color-primary); background:#e9f0f6; }
 
+/* 書類が主役の、落ち着いた対面契約ワークスペース。 */
+:root { --color-primary:#244c68; --color-primary-dark:#173b53; --color-bg:#f5f6f7; --color-border:#d7dfe4; --color-accent:#287d72; }
+.app-header { padding:14px 24px; }
+.app-header h1 { border-left:4px solid var(--color-accent); padding-left:10px; letter-spacing:.025em; }
+.app-credit { color:#687885; }
+.toolbar { gap:8px; }
+.toolbar .tool-button { background:transparent; border-color:transparent; color:#465967; }
+.toolbar .tool-button:hover { background:#edf2f4; color:var(--color-primary-dark); }
+#btn-nav-draft-save { border-color:#b4ccc7; background:#f1f7f5; color:#24665d; }
+#screen-home .screen-inner { max-width:1000px; padding:32px; }
+.home-intro { display:flex; align-items:center; justify-content:space-between; gap:24px; padding:28px 30px; margin-bottom:30px; border:1px solid #dae4e5; border-left:4px solid var(--color-accent); border-radius:14px; background:#fff; box-shadow:0 4px 18px rgba(24,52,68,.045); }
+.section-eyebrow { margin:0 0 10px; color:#35756d; font-size:12px; letter-spacing:.09em; font-weight:600; }
+.home-intro h2 { margin:0; color:#203e50; font-size:26px; line-height:1.5; letter-spacing:.025em; }
+.home-intro p:not(.section-eyebrow) { margin:10px 0 0; font-size:14px; line-height:1.7; color:#667783; }
+.home-intro button { flex:0 0 auto; min-height:48px; padding:12px 18px; border-radius:8px; }
+.home-list-title { font-size:18px; margin:0 0 10px; letter-spacing:.02em; }
+.home-tools-title { margin:28px 0 10px; font-size:14px; color:#556976; }
+.backup-actions { margin-top:0; padding-top:14px; border-top:1px solid var(--color-border); }
+.template-grid { gap:18px; }
+.template-card { border-radius:12px; padding:14px; gap:10px; box-shadow:0 3px 12px rgba(28,48,60,.045); }
+.template-card-thumb { padding:8px; background:#f0f3f4; border-color:#e1e7eb; border-radius:8px; }
+.template-card-thumb img { object-fit:contain; filter:drop-shadow(0 2px 4px rgba(20,40,50,.12)); }
+.template-card-name { font-size:15px; line-height:1.5; }
+.template-card-meta { font-size:12px; color:#73818b; }
+.template-card-actions .tool-button-primary { background:var(--color-primary); border-color:var(--color-primary); color:#fff; min-height:44px; }
+.template-card-actions .tool-button-primary:hover { background:#173b53; }
+.template-card-actions .tool-button-small:not(.tool-button-primary) { border-color:transparent; background:transparent; color:#526573; }
+.thumb-size-control { justify-content:flex-end; }
+.thumb-size-btn { padding:6px 12px; min-height:32px; background:#eaf0f2; }
+.signing-card { border-radius:14px; border-color:#dae2e7; box-shadow:0 6px 24px rgba(27,51,68,.06); }
+.signing-card h2 { font-weight:650; color:#203e50; }
+.big-button { border-radius:10px; min-height:60px; }
+.big-button-secondary { background:#f7f9fa; font-weight:500; }
+.signing-modal-box { border-radius:14px; }
+.contract-progress { display:flex; list-style:none; padding:0; margin:0 0 26px; gap:6px; }
+.contract-progress li { flex:1; font-size:13px; text-align:center; padding:0 0 10px; border-bottom:3px solid #e4e9ec; color:#72808c; }
+.contract-progress .is-current { border-color:var(--color-primary); color:var(--color-primary-dark); font-weight:700; }
+.contract-progress .is-done { border-color:var(--color-accent); color:#276c63; }
+.welcome-modal-box { max-width:840px; padding:24px 30px; scroll-behavior:smooth; }
+.help-header { display:flex; align-items:center; justify-content:space-between; gap:20px; position:sticky; top:-24px; margin:-24px -30px 18px; padding:20px 30px 14px; background:#fff; border-bottom:1px solid #e5eaed; z-index:1; }
+.help-header h3 { margin:0; }
+.welcome-lead { font-size:16px; line-height:1.8; }
+.help-contents { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:0 0 24px; }
+.help-contents button { background:#f3f6f7; border:1px solid #e1e7ea; border-radius:6px; padding:10px 12px; text-align:left; font:inherit; font-size:14px; color:#2a536a; cursor:pointer; }
+.help-contents button:hover { background:#eaf1f3; }
+.help-sections details { border-top:1px solid #dbe3e8; padding:16px 0; scroll-margin-top:80px; }
+.help-sections summary { font-size:18px; font-weight:600; color:#234c66; cursor:pointer; line-height:1.6; }
+.help-sections p, .help-sections li { font-size:16px; line-height:1.85; }
+.help-sections ol { padding-left:26px; }
+.help-sections li { padding-left:4px; margin:14px 0; }
+.help-note { border-left:3px solid #79a69e; padding:12px 16px; background:#f2f7f5; color:#405e5b; }
+.help-sections table { width:100%; border-collapse:collapse; margin-top:20px; font-size:15px; line-height:1.8; }
+.help-sections th, .help-sections td { padding:12px; border-bottom:1px solid #e2e7eb; text-align:left; vertical-align:top; }
+.help-sections th { width:32%; background:#f5f7f8; font-weight:600; }
+.visually-hidden { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+@media (max-width:600px) {
+  .app-header { padding:12px; } #screen-home .screen-inner { padding:20px 16px; }
+  .home-intro { align-items:flex-start; flex-direction:column; padding:22px; gap:18px; }
+  .home-intro h2 { font-size:22px; } .home-intro button { width:100%; }
+  .welcome-modal-box { padding:20px; } .help-header { top:-20px; margin:-20px -20px 18px; padding:16px 20px; }
+  .help-contents { grid-template-columns:1fr; } .help-sections th { width:36%; }
+}
+
+.template-card-actions .tool-button-small.tool-button-danger { color:var(--color-danger); }
+@media (prefers-reduced-motion:reduce) { .welcome-modal-box { scroll-behavior:auto; } }
+
 </style>
 </head>
 <body>
-<div style="padding:10px 20px;background:#e8eff5;color:#264b70;border-bottom:1px solid #d3dbe3;font-size:13px;text-align:center">実務フロー検証版 2026/10/2・画面整理版｜架空の情報でお試しください。公開版と保存領域は別です。</div>
+<div style="padding:8px 20px;background:#edf4f2;color:#356b63;border-bottom:1px solid #d7e5e1;font-size:12px;text-align:center">実務フロー検証版 2026/10/2・デザイン／使い方更新｜架空の情報でお試しください。公開版と保存領域は別です。</div>
   <header class="app-header">
     <div class="app-header-top">
       <h1>電子契約アプリ</h1>
@@ -1175,7 +1241,11 @@ button:focus-visible, summary:focus-visible { outline:3px solid #759dbf; outline
     <!-- ホーム画面: テンプレート一覧 -->
     <section id="screen-home" class="app-screen">
       <div class="screen-inner">
-        <h2>テンプレート一覧</h2>
+        <div class="home-intro">
+          <div><p class="section-eyebrow">対面契約のための電子署名</p><h2>書面を確認し、その場で署名。</h2><p>いつもの契約書を、繰り返し使える署名用の書式に。</p></div>
+          <button id="btn-home-new-template" class="tool-button tool-button-primary" type="button">PDFから書式を作る</button>
+        </div>
+        <h2 class="home-list-title">保存したテンプレート</h2>
         <p class="screen-hint">契約書・重要事項説明書のPDFに署名欄を配置したテンプレートです。一度作れば繰り返し使えます。</p>
         <div class="thumb-size-control" id="thumb-size-control">
           <span class="thumb-size-label">表示サイズ</span>
@@ -1184,6 +1254,7 @@ button:focus-visible, summary:focus-visible { outline:3px solid #759dbf; outline
           <button type="button" class="thumb-size-btn" data-size="large">大</button>
         </div>
         <div id="template-list" class="template-grid"></div>
+        <h3 class="home-tools-title">事業所と保存データ</h3>
         <div class="backup-actions">
           <button id="btn-operator-settings" class="tool-button-small" type="button">事業所・担当者を登録</button>
           <button id="btn-draft-restore" class="tool-button-small" type="button">途中保存から再開</button>
@@ -2696,7 +2767,7 @@ const Forms = (() => {
 
       const useBtn = document.createElement('button');
       useBtn.type = 'button';
-      useBtn.className = 'tool-button-small';
+      useBtn.className = 'tool-button-small tool-button-primary';
       useBtn.textContent = 'これで署名する';
       useBtn.addEventListener('click', () => callbacks.onUse(t.id));
       actions.appendChild(useBtn);
@@ -5336,7 +5407,7 @@ const VoidFlow = (() => {
       closeModal();
     });
     const cancelBtn = bigButton('キャンセル', closeModal, true);
-    box.append(missingReasons,confirmBtn);
+    box.append(confirmBtn);
     box.appendChild(cancelBtn);
 
     backdrop.appendChild(box);
@@ -5346,58 +5417,104 @@ const VoidFlow = (() => {
 
   // ===== 初回案内 =====
   const WELCOME_SEEN_KEY = 'preview_practical_20261002_keiyaku_welcome_seen_v1';
-  const WELCOME_STEPS = [
-    { emoji: '', title: 'PDFに署名欄を配置', text: '「新しいテンプレートを作る」からPDFを選び、署名欄・氏名欄などをドラッグで配置します。' },
-    { emoji: '', title: 'テンプレートとして保存', text: '書式名を付けて保存すれば、次回から同じ書式をすぐ使い回せます。' },
-    { emoji: '', title: 'その場で署名', text: '「これで署名する」→タブレットをお渡しすれば、対面でその場署名が完結します。' },
+  const HELP_SECTIONS = [
+    {title:'最初に知っておくこと', intro:'このアプリは、説明を終えた書面をその場で確認し、同じ端末で順番に署名するためのものです。相手への署名依頼メールや録音の機能はありません。', steps:[
+      '事業者が準備：未記入のPDFに署名欄などを配置し、テンプレートとして保存します。',
+      '対面で署名：利用者本人の情報と記入する方を確認し、書面を見ながら手書き署名します。',
+      '事業者が仕上げ：完成書面を確認し、PDFと監査記録を保存して、相手に控えを渡します。'
+    ], note:'iPadではSafariでアプリのURLを開いてください。最初の読み込みには通信が必要です。作業中の情報は自動保存されません。'},
+    {title:'1. 事業所と担当者を登録する', steps:[
+      'ホームの「事業所・担当者を登録」を押します。',
+      '事業所名と、説明・確認を担当する職員の名前を入力します。担当者は1行に1人ずつ入力し、「登録を保存」を押します。',
+      '署名後の確認画面では、事業所名が事前入力され、担当者を一覧から選べます。「直接入力する」も選べます。'
+    ], note:'登録はこのブラウザに保存されます。別の端末では登録が必要です。利用者の氏名・住所はここに登録しません。'},
+    {title:'2. PDFからテンプレートを作る', steps:[
+      '「PDFから書式を作る」または「新しいテンプレートを作る」を押し、「PDFを選ぶ」で未記入の原本を選びます。',
+      '左の「手書き署名」を押してから、PDFの署名する場所をドラッグし、四角い枠を描きます。枠を選ぶと移動・サイズ調整・項目設定ができます。',
+      '住所や日付など、書面に必要な項目を同じ方法で配置します。氏名・住所などがどの署名欄に対応するか、設定を確認してください。',
+      '文字の枠を選び、文字サイズのバーまたは数値で調整します。枠内の「印字見本」は架空の例で、契約時には入力内容が入ります。見本は表示を切り替えられます。',
+      '複数ページの書面は「次のページ」で移動し、必要なページにも枠を配置します。書式名と署名方法を設定し、左パネル下部の「テンプレートを保存」を押します。「試し印字を確認」で印字位置も確認してください。'
+    ], note:'テンプレートにはPDF全体が保存されます。実際の利用者名や署名が入ったPDFは原本として使わないでください。印字が収まらない場合は、枠を広げる・高さを増やす・文字サイズを調整します。'},
+    {title:'3. 署名欄と氏名・住所欄の使い分け', rows:[
+      ['手書き署名','ペンや指で名前を書く場所。氏名を自署する枠が署名欄を兼ねる書面では、この項目を使います。'],
+      ['利用者氏名（活字）','契約当事者である本人の名前。手書き署名とは別の活字氏名欄がある場合だけ配置します。'],
+      ['利用者住所欄','利用者本人の住所。家族が記入しても、本人の住所を印字します。'],
+      ['署名者氏名（活字）・署名者住所欄','実際に記入する方の氏名・住所。本人の情報と家族の情報を区別するときに使います。'],
+      ['続柄欄・確認チェック欄','その署名欄に対応する続柄や、書面で確認してもらう事項。必要に応じて必須・任意を設定します。']
+    ], note:'例：利用者の氏名を自署し、その横に住所を書く書式なら「手書き署名＋利用者住所欄」が基本です。本人用と家族用の欄がある書式は、署名欄を二つ置き、付随する項目の対応先をそれぞれ設定します。'},
+    {title:'4. 必要な署名人数を決める', rows:[
+      ['本人または家族の1人で完結','先頭の署名欄で、本人または本人に代わって記入する方が署名する書式。'],
+      ['必要な場合だけ追加の人も署名','署名前に事業者が追加署名の要否を選びます。代筆時の家族本人の署名を必須にする設定もあります。'],
+      ['設定した全員の署名が必要','配置した署名欄すべてを順番に記入する書式。']
+    ], note:'「本人名を家族が代筆する場合は、続けて家族本人の署名も必須にする」を使う場合は、署名欄を二つ配置します。以前のテンプレートは設定が維持されるため、編集画面で署名方法を確認してください。'},
+    {title:'5. 本人自署・家族の代筆・代理署名', intro:'ホームで書式の「これで署名する」を押します。「署名前の確認（事業者用）」で、利用者本人の氏名と、今回記入する方を確認します。利用者住所欄がある書式では、本人の住所も入力します。', steps:[
+      '本人が自署する場合：本人を選び、端末を渡します。書面を確認し、強調された署名欄を押して、本人がご自身の名前を書きます。',
+      '本人の意思に基づく家族の代筆：家族と代筆を選びます。入力欄には実際に代筆する家族の名前、手書き欄には本人の名前を記入します。本人の意思に基づく記入であることを確認します。',
+      '代理人として署名する場合：家族と代理署名を選びます。入力欄・手書き欄には代理人自身の名前を記入し、代理権の確認と、その根拠を記録します。根拠欄には、確認した委任状や成年後見人としての立場などを具体的に書きます。',
+      '住所は「住所」と任意の「建物名・部屋番号」に分けて入力します。PDFでは同じ住所枠にまとめて印字されます。本人と同じ住所の場合は、表示されるコピー操作を使えます。',
+      '「この内容で確定する」が押せないときは、その直前の「確定するために必要な項目」を確認します。氏名・署名・必須の住所・確認事項・代理権の根拠など、不足項目が表示されます。',
+      '同じ家族が次の家族欄にも署名するときは「先ほど代筆したご家族が続けて署名」などを選びます。入力済みの氏名・住所を引き継ぎ、家族自身の名前で新しく署名・確認します。'
+    ], note:'アプリは本人の契約能力や代理権の有無を判断しません。誰の意思に基づき、誰がどの立場で記入するかを事業者が確認してください。署名を訂正する場合は、その人以降の署名を取り直します。'},
+    {title:'6. 完成書面を確認し、ファイルを保存する', steps:[
+      '署名が揃ったら、事業所名・説明確認担当者・控えの交付方法を確認します。電子で渡す場合は、受取人の承諾確認も行います。',
+      '「完成書面を確認」で、署名・住所・日付などが正しい位置に入り、文字が枠に収まっているか、全ページを確認します。「印字内容を確認しました」を押します。',
+      '「確定してPDFを作成」を押します。「署名書類ができました」で、署名済みPDFと監査記録を一つずつ保存します。',
+      'iPadでは保存操作に応じてダウンロードや共有画面が開きます。Safariのダウンロード一覧や「ファイル」アプリで保存先を確認し、PDFを開いて内容を確認してください。',
+      '監査記録（JSON）はPDFと一緒に保管します。JSONを直接読めなくても、ホームの「保存した書類を照合」から確認できます。保存先を確認したら、画面の保存確認にチェックします。'
+    ], note:'保存ボタンを押しただけでは、端末への保存完了をアプリは確認できません。完成データは再読み込みで失われます。閉じる前に保存してください。契約の有効性や記録の真正性をアプリが保証するものではありません。'},
+    {title:'7. 控えを渡し、交付記録を残す', steps:[
+      '署名済みPDFを印刷する、または合意した方法で電子ファイルを渡すなど、事業所の運用に沿って控えを交付します。このアプリから自動送信はしません。',
+      '完了画面で「控えを渡した相手」と交付の詳細を入力し、交付結果を選びます。まだ渡していない場合は、その状態を選びます。',
+      '「交付記録を保存」でJSONを保存し、PDF・監査記録と一緒に保管します。',
+      '記録を読むときは、ホームの「保存した書類を照合」で交付記録を選び、「交付記録を読む」を押します。PDFも選べば、記録との対応をハッシュで照合できます。'
+    ], note:'交付記録は事業者が入力した記録です。実際の受領を認証するものではありません。PDFと監査記録のハッシュ一致も、本人性や契約の有効性を確認するものではありません。'},
+    {title:'8. 中断・再開とテンプレートのバックアップ', steps:[
+      'ホームへ戻っただけなら「途中の契約を再開」で続けられます。再読み込みや端末の終了には備えられないため、区切りのよい時点で途中保存してください。',
+      '「途中保存（暗号化）」で12文字以上のパスワードを二回入力し、「暗号化して保存」を押します。続けて「途中保存ファイルを端末へ保存」を押し、実際に保存されたことを確認します。',
+      '再開はホームの「途中保存から再開」。保存ファイルとパスワードを指定します。最後に手動保存した時点から戻ります。未確定の手書き筆跡は保存されません。',
+      '別の端末でも書式を使う場合は「テンプレートをバックアップ」で必要な書式を保存し、その端末で「バックアップから復元・追加」を押します。これは署名途中の契約ではなく、未記入の書式のバックアップです。'
+    ], note:'途中保存は自動ではありません。パスワードを忘れると復元できず、最後の保存以降の作業も復元できません。契約のPDF・記録・途中保存ファイルは、事業所の保管方法に沿って管理してください。'}
   ];
 
   function showWelcomeOverlay() {
-    const backdrop = document.createElement('div');
-    backdrop.className = 'modal-backdrop';
-    const box = document.createElement('div');
-    box.className = 'signing-modal-box welcome-modal-box';
-
-    const title = document.createElement('h3');
-    title.textContent = '電子契約アプリの使い方';
-    box.appendChild(title);
-
-    const lead = document.createElement('p');
-    lead.className = 'welcome-lead';
-    lead.textContent = '契約書・重要事項説明書のPDFに署名欄を置くだけで、タブレットでのその場署名が完結するアプリです。';
-    box.appendChild(lead);
-
-    const stepList = document.createElement('div');
-    stepList.className = 'welcome-steps';
-    WELCOME_STEPS.forEach((s, i) => {
-      const item = document.createElement('div');
-      item.className = 'welcome-step';
-      const emoji = document.createElement('div');
-      emoji.className = 'welcome-step-emoji';
-      emoji.textContent = s.emoji;
-      item.appendChild(emoji);
-      const body = document.createElement('div');
-      const stepTitle = document.createElement('div');
-      stepTitle.className = 'welcome-step-title';
-      stepTitle.textContent = (i + 1) + '. ' + s.title;
-      const stepText = document.createElement('div');
-      stepText.className = 'welcome-step-text';
-      stepText.textContent = s.text;
-      body.appendChild(stepTitle);
-      body.appendChild(stepText);
-      item.appendChild(body);
-      stepList.appendChild(item);
+    const previousFocus = document.activeElement;
+    const backdrop = document.createElement('div'); backdrop.className = 'modal-backdrop';
+    const box = document.createElement('div'); box.className = 'signing-modal-box welcome-modal-box';
+    box.setAttribute('role','dialog'); box.setAttribute('aria-modal','true'); box.setAttribute('aria-labelledby','help-title');
+    const title = document.createElement('h3'); title.id = 'help-title'; title.textContent = '使い方ガイド';
+    const lead = document.createElement('p'); lead.className = 'welcome-lead';
+    lead.textContent = '初めての準備から、署名・保存・控えの交付まで。知りたい項目を選ぶと、その操作を詳しく読めます。';
+    const close = () => { backdrop.remove(); if (previousFocus?.isConnected) previousFocus.focus(); };
+    const closeBtn = document.createElement('button'); closeBtn.type = 'button'; closeBtn.className = 'tool-button-small'; closeBtn.textContent = '閉じる'; closeBtn.addEventListener('click',close);
+    const header = document.createElement('div'); header.className = 'help-header'; header.append(title,closeBtn);
+    box.append(header,lead);
+    const contents = document.createElement('nav'); contents.className = 'help-contents'; contents.setAttribute('aria-label','使い方の目次');
+    const sections = document.createElement('div'); sections.className = 'help-sections';
+    HELP_SECTIONS.forEach((section,index) => {
+      const details = document.createElement('details'); details.open = index === 0;
+      const summary = document.createElement('summary'); summary.textContent = section.title; details.append(summary);
+      const link = document.createElement('button'); link.type = 'button'; link.textContent = section.title;
+      link.addEventListener('click',() => { details.open = true; details.scrollIntoView({block:'start'}); summary.focus(); }); contents.append(link);
+      if (section.intro) { const p = document.createElement('p'); p.textContent = section.intro; details.append(p); }
+      if (section.steps) { const list = document.createElement('ol'); section.steps.forEach(text => { const item = document.createElement('li'); item.textContent = text; list.append(item); }); details.append(list); }
+      if (section.rows) {
+        const table = document.createElement('table'); const caption = document.createElement('caption'); caption.textContent = section.title; caption.className = 'visually-hidden'; table.append(caption);
+        section.rows.forEach(([name,text]) => { const row = document.createElement('tr'); const label = document.createElement('th'); label.scope = 'row'; label.textContent = name; const cell = document.createElement('td'); cell.textContent = text; row.append(label,cell); table.append(row); }); details.append(table);
+      }
+      const note = document.createElement('p'); note.className = 'help-note'; note.textContent = section.note; details.append(note); sections.append(details);
     });
-    box.appendChild(stepList);
-
-    const startBtn = bigButton('はじめる →', () => {
-      localStorage.setItem(WELCOME_SEEN_KEY, '1');
-      backdrop.remove();
+    box.append(contents,sections);
+    const startBtn = bigButton('はじめる →',() => { localStorage.setItem(WELCOME_SEEN_KEY,'1'); close(); }); box.append(startBtn);
+    box.addEventListener('keydown',event => {
+      if (event.key === 'Escape') { event.preventDefault(); close(); }
+      if (event.key === 'Tab') {
+        const focusable = [...box.querySelectorAll('button,summary')].filter(node => node.getClientRects().length);
+        const first = focusable[0], last = focusable.at(-1);
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
     });
-    box.appendChild(startBtn);
-
-    backdrop.appendChild(box);
-    document.body.appendChild(backdrop);
+    backdrop.append(box); document.body.append(backdrop); closeBtn.focus();
   }
 
   function escapeHtml(text) {
@@ -5409,6 +5526,14 @@ const VoidFlow = (() => {
   function buildCard(titleText, bodyHtml) {
     const card = document.createElement('div');
     card.className = 'signing-card';
+    const progress = document.createElement('ol'); progress.className = 'contract-progress'; progress.setAttribute('aria-label','契約の進み具合');
+    const activeStep = completedExport ? 3 : signingUiState.phase === 'recipient_name' ? 0 : signingUiState.phase === 'review' ? 2 : 1;
+    ['準備','署名','確認','保存'].forEach((label,index) => {
+      const step = document.createElement('li'); step.textContent = label;
+      if (index < activeStep) step.className = 'is-done';
+      if (index === activeStep) { step.className = 'is-current'; step.setAttribute('aria-current','step'); }
+      progress.append(step);
+    }); card.append(progress);
     const h2 = document.createElement('h2');
     h2.textContent = titleText;
     card.appendChild(h2);
@@ -5608,6 +5733,7 @@ const VoidFlow = (() => {
     q('btn-draft-restore').addEventListener('click', () => openDraftDialog(true));
     q('btn-nav-resume').addEventListener('click', () => { showScreen('signing'); renderSigningStep(); });
     q('btn-nav-home').addEventListener('click', () => { showScreen('home'); renderHomeTemplateList(); });
+    q('btn-home-new-template').addEventListener('click', () => { if (signingBusy) return; resetTemplateEditor(); showScreen('template-editor'); });
     q('btn-nav-new-template').addEventListener('click', () => { if (signingBusy) return; resetTemplateEditor(); showScreen('template-editor'); });
     q('btn-nav-void').addEventListener('click', () => { showScreen('void'); });
     q('btn-nav-help').addEventListener('click', showWelcomeOverlay);
