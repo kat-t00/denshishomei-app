@@ -62,16 +62,31 @@ test('保存失敗から再保存でき、PDFと監査記録を同じ内容で�
     assert.match(await page.locator('#signing-stage').innerText(), /署名内容・交付方法の確認/);
     await page.evaluate(async()=> {
       PdfWriter.buildSignedPdf = window.originalBuild;
-      // 接続済みDriveの障害でも、手元への保存が使えることを確認。
-      CloudDrive.isConnected = () => true;
-      CloudDrive.uploadFile = async () => { throw new Error('テスト用通信エラー'); };
+      window.sharedFiles=[];window.shareMode='success';
+      Object.defineProperty(navigator,'canShare',{configurable:true,value:({files})=>files.every(file=>file.type==='application/pdf'||file.type==='application/json')});
+      Object.defineProperty(navigator,'share',{configurable:true,value:async({files})=>{if(window.shareMode!=='success')throw new DOMException('test',window.shareMode);window.sharedFiles.push(...files);}});
     });
     await page.getByRole('button', { name: /確定してPDFを作成/ }).click();
     await page.getByRole('heading', { name: '署名書類ができました' }).waitFor({ timeout: 30000 });
-    assert.match(await page.locator('#signing-stage').innerText(), /Googleドライブへの保存に失敗/);
     assert.doesNotMatch(await page.locator('#signing-stage').innerText(), /ダウンロードしました|ダウンロードは完了/);
     assert.equal(await page.getByRole('button', { name: '説明音声を保存' }).count(), 0);
     assert.equal(downloadCount, 0, '保存は利用者の個別操作で開始する');
+    await page.getByRole('button',{name:'署名済みPDFを共有',exact:true}).click();
+    await page.waitForFunction(()=>window.sharedFiles.length===1);
+    assert.equal(await page.locator('#export-saved-confirm').isChecked(),false);
+    await page.getByRole('button',{name:'監査記録を共有',exact:true}).click();
+    await page.waitForFunction(()=>window.sharedFiles.length===2);
+    await page.evaluate(()=>window.shareMode='AbortError');
+    await page.getByRole('button',{name:'署名済みPDFを共有',exact:true}).click();
+    await page.getByText('共有されませんでした。必要なら保存ボタンをご利用ください。',{exact:true}).waitFor();
+    await page.evaluate(()=>window.shareMode='NotAllowedError');
+    await page.getByRole('button',{name:'署名済みPDFを共有',exact:true}).click();
+    await page.getByText(/共有できませんでした。保存ボタン/).waitFor();
+    assert.equal(await page.getByRole('button',{name:'署名済みPDFを共有',exact:true}).isEnabled(),true);
+    assert.equal(await page.locator('#export-saved-confirm').isChecked(),false);
+    assert.equal(downloadCount,0,'共有成功・取消・失敗で自動ダウンロードしない');
+    const support=await page.evaluate(()=>{const canShare=navigator.canShare;Object.defineProperty(navigator,'canShare',{configurable:true,value:()=>false});const supported=ExportModule.canShareFile({bytes:new Uint8Array([1]),name:'test.json',mimeType:'application/json'});Object.defineProperty(navigator,'canShare',{configurable:true,value:canShare});return supported;});assert.equal(support,false);
+
     const audioFiles = await page.evaluate(async()=> ExportModule.listArtifactFiles({
       pdfBytes: new Uint8Array([1]), auditJson: '{}', fileNameBase: '録音テスト',
       audioBytes: new Uint8Array([2]), audioMimeType: 'audio/mp4',
@@ -97,6 +112,9 @@ test('保存失敗から再保存でき、PDFと監査記録を同じ内容で�
     }
     const pdf = await download('署名済みPDFを保存');
     const audit = JSON.parse(await download('監査記録を保存'));
+    const shared = await page.evaluate(async()=>Promise.all(window.sharedFiles.map(async f=>({name:f.name,type:f.type,bytes:Array.from(new Uint8Array(await f.arrayBuffer()))}))));
+    assert.deepEqual(Buffer.from(shared[0].bytes),pdf);assert.deepEqual(JSON.parse(Buffer.from(shared[1].bytes).toString()),audit);
+
     assert.equal(createHash('sha256').update(pdf).digest('hex'), audit.finalPdfHashSha256);
     const pdfInfo = await page.evaluate(async bytes => {
       const doc = await pdfjsLib.getDocument({ data: new Uint8Array(bytes) }).promise;

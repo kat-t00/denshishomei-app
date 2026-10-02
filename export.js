@@ -63,12 +63,16 @@ const ExportModule = (() => {
     return files;
   }
 
-  // MVPのデフォルトの保存先: 端末へのダウンロード。
-  // Phase 2ではここにcloudUploadSink等を追加してsinkFnとして渡せばよい。
-  //
-  // iPad(iOS Safari)は、複数のダウンロードを間を空けずに連続発火させると
-  // 最後の1つしか実行されない制約があるため(Mac版Chromeでは問題なし)、
-  // 1つずつ間隔を空けて発火させる
+  function toShareFile(file) { return new File([file.bytes],file.name,{type:file.mimeType}); }
+  function canShareFile(file) {
+    try { return typeof navigator.share === 'function' && typeof navigator.canShare === 'function' && navigator.canShare({files:[toShareFile(file)]}); } catch (_) { return false; }
+  }
+  async function shareFile(file) {
+    if (!canShareFile(file)) throw new Error('この端末ではこのファイルの共有に対応していません。');
+    await navigator.share({files:[toShareFile(file)]});
+  }
+
+  // 複数保存が制限される端末に配慮して間隔を空ける。
   function downloadSink(artifacts) {
     const files = [
       [artifacts.pdfBytes, artifacts.fileNameBase + '.pdf', 'application/pdf'],
@@ -119,5 +123,5 @@ const ExportModule = (() => {
     reader.readAsText(file);
   }
 
-  return { buildSignedArtifacts, listArtifactFiles, saveArtifacts, downloadSink, downloadBlob, exportTemplatesBackup, importTemplatesBackup, audioFileExtension };
+  return { canShareFile, shareFile, buildSignedArtifacts, listArtifactFiles, saveArtifacts, downloadSink, downloadBlob, exportTemplatesBackup, importTemplatesBackup, audioFileExtension };
 })();

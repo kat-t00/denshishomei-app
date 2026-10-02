@@ -39,7 +39,6 @@ JS_FILES = [
     "audit.js",
     "verification_view.js",
     "export.js",
-    "cloud_drive.js",
     "void_flow.js",
     "app.js",
 ]

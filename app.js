@@ -79,23 +79,6 @@
     });
   }
 
-  // クラウド保存(Googleドライブ)の接続状態をホーム画面に反映する。
-  // file://等、OAuthが原理的に使えない環境ではセクションごと隠す
-  function renderCloudDriveSection() {
-    if (!el.cloudDriveSection) return;
-    if (!CloudDrive.isAvailable()) {
-      el.cloudDriveSection.classList.add('hidden');
-      return;
-    }
-    el.cloudDriveSection.classList.remove('hidden');
-    if (CloudDrive.isConnected()) {
-      el.cloudDriveStatus.textContent = '接続済み（署名完了時に自動で保存されます）';
-      el.cloudDriveToggleBtn.textContent = '接続を解除';
-    } else {
-      el.cloudDriveStatus.textContent = '未接続';
-      el.cloudDriveToggleBtn.textContent = 'Googleドライブに接続';
-    }
-  }
 
   // テンプレート一覧のサムネイル(1ページ目を縮小したもの)を作る。
   // 一覧はPDF本体を含まない軽量データなので、表示のたびに個別取得して非同期で埋める。
@@ -813,6 +796,24 @@
     }, true));
   }
 
+  function appendFileActions(container, getFile, label, probeFile) {
+    const actions = document.createElement('div'); actions.className = 'file-actions';
+    const status = document.createElement('p'); status.setAttribute('role','status');
+    actions.append(bigButton(label + 'を保存', () => {
+      try { const file=getFile(); if (!file) return; ExportModule.downloadBlob(file.bytes,file.name,file.mimeType); status.textContent='保存操作を開始しました。保存先でファイルを開いて確認してください。'; }
+      catch(error) { status.textContent='保存を開始できませんでした。再試行してください。 '+error.message; }
+    }));
+    // 完成ファイルで共有対応を確認。交付記録は操作時に最新内容を生成する。
+    if (ExportModule.canShareFile(probeFile || {bytes:new Uint8Array([32]),name:label+(label==='署名済みPDF'?'.pdf':'.json'),mimeType:label==='署名済みPDF'?'application/pdf':'application/json'})) {
+      const share = bigButton(label + 'を共有', async () => {
+        try { const file=getFile(); if (!file) return; share.disabled=true; await ExportModule.shareFile(file); status.textContent='共有先へファイルを渡しました。共有先で内容と保存結果を確認してください。'; }
+        catch(error) { status.textContent=error.name==='AbortError'?'共有されませんでした。必要なら保存ボタンをご利用ください。':'共有できませんでした。保存ボタンからファイルを保存してください。 '+error.message; }
+        finally { share.disabled=false; }
+      },true); actions.append(share);
+    }
+    container.append(actions,status);
+  }
+
   function addDeliveryRecord(card, saved) {
     const session = SigningFlow.getSession();
     const draft = saved.deliveryDraft || (saved.deliveryDraft = {recipient:'', status:'pending', detail:''});
@@ -827,52 +828,33 @@
     const select = document.createElement('select');
     [['pending','まだ渡していない'],['delivered','控えを渡した']].forEach(([value,text]) => {const option=document.createElement('option');option.value=value;option.textContent=text;select.append(option);});
     select.value = draft.status; select.addEventListener('change', () => {draft.status = select.value; saved.confirmed = false; q('export-saved-confirm').checked = false;}); label.append(select); card.append(label);
-    const status = document.createElement('p'); status.setAttribute('role','status');
-    card.append(bigButton('交付記録を保存', () => {
-      if (draft.status === 'delivered' && !draft.recipient.trim()) { alert('控えを渡した相手を入力してください。'); return; }
-      try {
-        const key = JSON.stringify(draft);
-        if (saved.deliveryKey !== key) {
-          saved.deliveryRecord = {format:'keiyaku-delivery',schemaVersion:1,verificationId:session.verificationId,finalPdfHashSha256:session.finalPdfHashSha256,
-            recordedAt:new Date().toISOString(),timeSource:'device_clock',operator:session.operator,method:session.deliveryPlan.method,
-            electronicConsent:session.deliveryPlan.electronicConsent,recipient:draft.recipient.trim(),status:draft.status,detail:draft.detail.trim()};
-          saved.deliveryKey = key;
-        }
-        ExportModule.downloadBlob(new TextEncoder().encode(JSON.stringify(saved.deliveryRecord,null,2)),saved.artifacts.fileNameBase + '_交付記録.json','application/json');
-        status.textContent = '保存操作を開始しました。交付記録も保存先で確認し、上の保存確認にチェックしてください。';
-      } catch(e) { status.textContent = '交付記録を保存できませんでした。再試行してください。' + e.message; }
-    },true), status);
+    appendFileActions(card, () => {
+      if (draft.status === 'delivered' && !draft.recipient.trim()) { alert('控えを渡した相手を入力してください。'); return null; }
+      const key=JSON.stringify(draft);
+      if (saved.deliveryKey !== key) {
+        saved.deliveryRecord={format:'keiyaku-delivery',schemaVersion:1,verificationId:session.verificationId,finalPdfHashSha256:session.finalPdfHashSha256,
+          recordedAt:new Date().toISOString(),timeSource:'device_clock',operator:session.operator,method:session.deliveryPlan.method,
+          electronicConsent:session.deliveryPlan.electronicConsent,recipient:draft.recipient.trim(),status:draft.status,detail:draft.detail.trim()}; saved.deliveryKey=key;
+      }
+      return {bytes:new TextEncoder().encode(JSON.stringify(saved.deliveryRecord,null,2)),name:saved.artifacts.fileNameBase+'_交付記録.json',mimeType:'application/json'};
+    }, '交付記録');
   }
 
   function renderCompletedExport() {
     if (!completedExport) return;
     const saved = completedExport;
     const card = buildCard('署名書類ができました',
-      '<p>下のボタンから、一つずつファイルを保存してください。保存先でファイルを開き、内容をご確認ください。</p>' +
+      '<p>下のボタンから、一つずつファイルを保存、または共有してください。保存先でファイルを開き、内容をご確認ください。</p>' +
       '<p>ブラウザのタブを閉じたり再読み込みすると、再保存できなくなります。次の署名を始めるまでは「直前の署名書類」から戻れます。</p>');
     const auditHint = document.createElement('p');
     auditHint.textContent = '契約内容と署名の記録はPDFで読めます。監査記録（JSON）はPDFと一緒に保管する照合用データです。「保存したファイルを照合する」から確認できます。';
     card.append(auditHint);
+    const shareHint = document.createElement('p'); shareHint.className = 'side-panel-hint';
+    shareHint.textContent = '「共有」は対応するファイルにだけ表示されます。共有先は端末で選びます。共有操作の後も保存先で内容を確認してください。'; card.append(shareHint);
     ExportModule.listArtifactFiles(saved.artifacts).forEach(file => {
-      const name = document.createElement('p');
-      name.className = 'signing-filename';
-      name.textContent = file.name;
-      const status = document.createElement('p');
-      status.setAttribute('role', 'status');
-      const button = bigButton(file.label + 'を保存', () => {
-        try {
-          ExportModule.downloadBlob(file.bytes, file.name, file.mimeType);
-          status.textContent = '保存操作を開始しました。端末の保存先をご確認ください。必要なら同じボタンで再保存できます。';
-        } catch (e) {
-          status.textContent = '保存を開始できませんでした。もう一度お試しください。' + e.message;
-        }
-      });
-      card.append(button, name, status);
+      const name = document.createElement('p'); name.className = 'signing-filename'; name.textContent = file.name;
+      card.append(name); appendFileActions(card, () => file, file.label, file);
     });
-    const cloudStatus = document.createElement('p');
-    cloudStatus.setAttribute('role', 'status');
-    cloudStatus.textContent = saved.cloudStatus;
-    card.appendChild(cloudStatus);
     const label = document.createElement('label');
     label.className = 'checkbox-row';
     const checkbox = document.createElement('input');
@@ -1496,9 +1478,10 @@
       '署名が揃ったら、事業所名・説明確認担当者・控えの交付方法を確認します。電子で渡す場合は、受取人の承諾確認も行います。',
       '「完成書面を確認」で、署名・住所・日付などが正しい位置に入り、文字が枠に収まっているか、全ページを確認します。「印字内容を確認しました」を押します。',
       '「確定してPDFを作成」を押します。「署名書類ができました」で、署名済みPDFと監査記録を一つずつ保存します。',
+      '対応端末では「共有」から端末の共有先を選べます。表示されないファイルは「保存」を使ってください。共有しても保存や相手の受領が完了したとは判定しないため、共有先で確認します。',
       'iPadでは保存操作に応じてダウンロードや共有画面が開きます。Safariのダウンロード一覧や「ファイル」アプリで保存先を確認し、PDFを開いて内容を確認してください。',
       '監査記録（JSON）はPDFと一緒に保管します。JSONを直接読めなくても、ホームの「保存した書類を照合」から確認できます。保存先を確認したら、画面の保存確認にチェックします。'
-    ], note:'保存ボタンを押しただけでは、端末への保存完了をアプリは確認できません。完成データは再読み込みで失われます。閉じる前に保存してください。契約の有効性や記録の真正性をアプリが保証するものではありません。'},
+    ], note:'保存・共有ボタンを押しただけでは、保存完了や相手の受領をアプリは確認できません。完成データは再読み込みで失われます。閉じる前に保存してください。契約の有効性や記録の真正性をアプリが保証するものではありません。'},
     {title:'7. 控えを渡し、交付記録を残す', steps:[
       '署名済みPDFを印刷する、または合意した方法で電子ファイルを渡すなど、事業所の運用に沿って控えを交付します。このアプリから自動送信はしません。',
       '完了画面で「控えを渡した相手」と交付の詳細を入力し、交付結果を選びます。まだ渡していない場合は、その状態を選びます。',
@@ -1627,7 +1610,7 @@
       return;
     }
     // 作成と保存は別の状態。完成バイト列は保持し、保存・再保存時には作り直さない。
-    const saved = { artifacts, confirmed: false, cloudStatus: '' };
+    const saved = { artifacts, confirmed: false };
     completedExport = saved;
     signingBusy = false;
     signingUiState.phase = 'done';
@@ -1641,21 +1624,6 @@
       console.error(e);
       alert('署名書類は作成できました。保存画面から保存してください。\n' +
         'ただしテンプレート側の更新記録に失敗しました: ' + e.message);
-    }
-    // 通信中でも端末への保存画面を使える。通信失敗時も完成データは保持する。
-    if (CloudDrive.isConnected()) {
-      saved.cloudStatus = 'Googleドライブに保存中です。端末への保存も行えます。';
-      renderCompletedExport();
-      try {
-        for (const file of ExportModule.listArtifactFiles(artifacts)) {
-          await CloudDrive.uploadFile(file.bytes, file.name, file.mimeType);
-        }
-        saved.cloudStatus = 'Googleドライブに全ファイルを保存しました。保存先で内容をご確認ください。';
-      } catch (e) {
-        console.error('Googleドライブへの保存に失敗しました', e);
-        saved.cloudStatus = 'Googleドライブへの保存に失敗しました（一部だけ保存されている場合があります）。上のボタンから全ファイルを端末に保存してください。 ' + e.message;
-      }
-      if (completedExport === saved) renderCompletedExport();
     }
   }
 
@@ -1760,9 +1728,6 @@
     el.voidResult = q('void-result');
     el.voidResignTemplateList = q('void-resign-template-list');
     el.thumbSizeControl = q('thumb-size-control');
-    el.cloudDriveSection = q('cloud-drive-section');
-    el.cloudDriveStatus = q('cloud-drive-status');
-    el.cloudDriveToggleBtn = q('btn-cloud-drive-toggle');
 
     q('toggle-print-preview').addEventListener('change', event => FieldEditor.setPrintPreviewVisible(event.target.checked));
     q('btn-operator-settings').addEventListener('click', () => {
@@ -1879,27 +1844,7 @@
     q('void-pdf-input').addEventListener('change', () => { voidPdfFile = q('void-pdf-input').files[0]; });
     q('btn-void-confirm').addEventListener('click', handleVoidConfirm);
 
-    el.cloudDriveToggleBtn.addEventListener('click', async () => {
-      if (CloudDrive.isConnected()) {
-        CloudDrive.disconnect();
-        renderCloudDriveSection();
-        return;
-      }
-      try {
-        el.cloudDriveToggleBtn.disabled = true;
-        await CloudDrive.connect();
-        showToast('Googleドライブに接続しました');
-      } catch (e) {
-        console.error('Googleドライブへの接続に失敗しました', e);
-        alert('Googleドライブへの接続に失敗しました。\n' + e.message);
-      } finally {
-        el.cloudDriveToggleBtn.disabled = false;
-        renderCloudDriveSection();
-      }
-    });
-
     renderHomeTemplateList();
-    renderCloudDriveSection();
     showScreen('home');
     document.body.dataset.appReady = 'true';
 
