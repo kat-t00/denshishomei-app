@@ -9,7 +9,7 @@ const PdfUtils = (() => {
   const DISPLAY_SCALE = 1.4; // 画面表示用の標準の拡大率（PDFのポイント → 画面ピクセル。ズーム100%の基準値）
 
   async function loadPdf(arrayBuffer) {
-    return pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    return pdfjsLib.getDocument({ data: arrayBuffer, isEvalSupported: false }).promise;
   }
 
   // ページを実際に描画せず、PDF上の実サイズ（ポイント単位）だけを取得する（ズームのfit計算に使う）

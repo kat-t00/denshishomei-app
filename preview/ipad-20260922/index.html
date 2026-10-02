@@ -1453,7 +1453,7 @@ const PdfUtils = (() => {
   const DISPLAY_SCALE = 1.4; // 画面表示用の標準の拡大率（PDFのポイント → 画面ピクセル。ズーム100%の基準値）
 
   async function loadPdf(arrayBuffer) {
-    const doc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const doc = await pdfjsLib.getDocument({ data: arrayBuffer, isEvalSupported: false }).promise;
     for (let number = 1; number <= doc.numPages; number++) {
       const page = await doc.getPage(number);
       if (page.rotate % 360 !== 0 || page.view[0] !== 0 || page.view[1] !== 0) {
