@@ -1316,7 +1316,7 @@ html[data-theme="dark"] .signature-tools .signature-clear { color:#ffc2b8; }
 </style>
 </head>
 <body>
-<div style="padding:8px 20px;background:#203e54;color:#dae9f0;border-bottom:1px solid #547182;font-size:12px;text-align:center">実務フロー検証版・記入者情報の引き継ぎを更新｜架空の情報でお試しください。</div>
+<div style="padding:8px 20px;background:#203e54;color:#dae9f0;border-bottom:1px solid #547182;font-size:12px;text-align:center">実務フロー検証版・途中保存ファイルの選択を改善｜架空の情報でお試しください。</div>
   <header class="app-header">
     <div class="app-header-top">
       <h1>電子契約アプリ</h1>
@@ -4751,13 +4751,14 @@ const VoidFlow = (() => {
     const box = document.createElement('div'); box.className = 'signing-modal-box draft-dialog';
     const title = document.createElement('h3'); title.textContent = restore ? '途中保存ファイルから再開' : '途中保存（暗号化）';
     const note = document.createElement('p');
-    note.textContent = restore ? '保存したファイルとパスワードを指定します。自動保存ではなく、最後に手動保存した時点から再開します。'
+    note.textContent = restore ? '「契約途中保存」で始まるファイルとパスワードを指定します。最後に手動保存した時点から再開します。以前の.keiyakuファイルも選べます。'
       : '確定済みの署名と入力をパスワード付きファイルへ保存します。編集中の手書き署名は先に確定してください。パスワードを忘れると復元できません。';
     box.append(title,note);
     let fileInput = null;
     if (restore) {
       const label = document.createElement('label'); label.className = 'signing-field-label'; label.textContent = '暗号化した途中保存ファイル';
-      fileInput = document.createElement('input'); fileInput.type = 'file'; fileInput.id = 'draft-restore-file'; fileInput.accept = '.keiyaku,.json';
+      fileInput = document.createElement('input'); fileInput.type = 'file'; fileInput.id = 'draft-restore-file';
+      // iPadで未登録拡張子の旧ファイルも選べるよう、型フィルターを設けず復号時に内容を検証する。
       label.append(fileInput); box.append(label);
     }
     const passwordLabel = document.createElement('label'); passwordLabel.className = 'signing-field-label'; passwordLabel.textContent = '途中保存用パスワード';
@@ -4814,7 +4815,7 @@ const VoidFlow = (() => {
             audio:sessionAudioBlob ? {type:sessionAudioBlob.type,bytes:DraftVault.toBase64(new Uint8Array(await sessionAudioBlob.arrayBuffer()))} : null};
           const encrypted = await DraftVault.encrypt(state,password.value);
           const save = bigButton('途中保存ファイルを端末へ保存', () => {
-            try { ExportModule.downloadBlob(new TextEncoder().encode(encrypted),'契約途中保存_'+Date.now()+'.keiyaku','application/octet-stream'); status.textContent = '保存操作を開始しました。保存先を確認してください。パスワードとファイルを両方保管してください。'; }
+            try { ExportModule.downloadBlob(new TextEncoder().encode(encrypted),'契約途中保存_'+Date.now()+'.json','application/json'); status.textContent = '保存操作を開始しました。保存先を確認してください。パスワードとファイルを両方保管してください。'; }
             catch(e) { status.textContent = '保存できませんでした。もう一度保存してください。' + e.message; }
           });
           // 暗号化の待ち時間でiPadのタップ権限が切れないよう、保存は別の明示操作にする。
@@ -5615,8 +5616,8 @@ const VoidFlow = (() => {
     ], note:'交付記録は事業者が入力した記録です。実際の受領を認証するものではありません。PDFと監査記録のハッシュ一致も、本人性や契約の有効性を確認するものではありません。'},
     {title:'8. 中断・再開とテンプレートのバックアップ', steps:[
       'ホームへ戻っただけなら「入力中の契約に戻る」で続けられます。再読み込みや端末の終了には備えられないため、区切りのよい時点で途中保存してください。',
-      '「途中保存（暗号化）」で12文字以上のパスワードを二回入力し、「暗号化して保存」を押します。続けて「途中保存ファイルを端末へ保存」を押し、実際に保存されたことを確認します。',
-      '再開はホームの「途中保存ファイルから再開」。保存ファイルとパスワードを指定します。最後に手動保存した時点から戻ります。未確定の手書き筆跡は保存されません。',
+      '「途中保存（暗号化）」で12文字以上のパスワードを二回入力し、「暗号化して保存」を押します。続けて「途中保存ファイルを端末へ保存」を押し、「契約途中保存_日時.json」が実際に保存されたことを確認します。中身は暗号化されており、パスワードなしでは復元できません。',
+      '再開はホームの「途中保存ファイルから再開」。「契約途中保存」で始まるJSONファイルとパスワードを指定します。以前の.keiyakuファイルも読み込めます。ファイルアプリで直接開かず、このアプリで選択してください。最後に手動保存した時点から戻ります。未確定の手書き筆跡は保存されません。',
       '別の端末でも書式を使う場合は「テンプレートをバックアップ」で必要な書式を保存し、その端末で「バックアップから復元・追加」を押します。これは署名途中の契約ではなく、未記入の書式のバックアップです。'
     ], note:'途中保存は自動ではありません。パスワードを忘れると復元できず、最後の保存以降の作業も復元できません。契約のPDF・記録・途中保存ファイルは、事業所の保管方法に沿って管理してください。'}
   ];
