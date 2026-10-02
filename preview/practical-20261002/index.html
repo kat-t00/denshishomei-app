@@ -1324,7 +1324,7 @@ html[data-theme="dark"] .field-assignment-target { background:#263e4b; color:#d7
 </style>
 </head>
 <body>
-<div style="padding:8px 20px;background:#203e54;color:#dae9f0;border-bottom:1px solid #547182;font-size:12px;text-align:center">実務フロー検証版・住所と建物名の改行表示を統一｜架空の情報でお試しください。</div>
+<div style="padding:8px 20px;background:#203e54;color:#dae9f0;border-bottom:1px solid #547182;font-size:12px;text-align:center">実務フロー検証版・住所欄の行数設定を追加｜架空の情報でお試しください。</div>
   <header class="app-header">
     <div class="app-header-top">
       <h1>電子契約アプリ</h1>
@@ -1749,6 +1749,7 @@ const Models = (() => {
       const label = (index + 1) + 'ページ目「' + (field.label || labels[field.type] || field.type) + '」';
       if (!field.id || ids.has(field.id)) errors.push(label + 'の項目IDが重複または欠落しています。');
       ids.add(field.id);
+      if (['address','recipient_address'].includes(field.type) && field.addressRows != null && ![2,3,4].includes(field.addressRows)) errors.push(label + 'の行数を選び直してください。');
       if (field.type === 'declaration_checkbox' && field.checkPrintStyle && !['check','confirmed'].includes(field.checkPrintStyle)) errors.push(label + 'のチェック印字形式が未対応です。');
       if (!Object.values(FIELD_TYPES).includes(field.type)) errors.push(label + 'の項目の種類が未対応です。');
       if (field.assignedRole && !['either','recipient','family','additional'].includes(field.assignedRole)) errors.push(label + 'の表示条件が正しくありません。');
@@ -2315,6 +2316,16 @@ const FieldEditor = (() => {
     }
   }
 
+  function fitAddressRows(field) {
+    if (!['address','recipient_address'].includes(field.type) || !field.addressRows) return;
+    const page = pages.find(page => page.fields.some(item => item.id === field.id));
+    if (!page) return;
+    const height = (field.fontSize || 14) * 1.5 * field.addressRows + 4;
+    const top = field.y + field.height;
+    field.height = Math.min(height, page.heightPt);
+    field.y = Math.max(0, Math.min(top - field.height, page.heightPt - field.height));
+  }
+
   function normalizeSignatureOrder() {
     getSignatureFields().forEach((field, index) => { field.signOrder = index + 1; });
   }
@@ -2511,6 +2522,7 @@ const FieldEditor = (() => {
     });
     handle.addEventListener('pointermove', (evt) => {
       if (!resizing) return;
+      if (['address','recipient_address'].includes(field.type)) delete field.addressRows;
       const scale = zoom.getScale();
       const dxPt = (evt.clientX - startPx) / scale;
       const dyPt = (evt.clientY - startPy) / scale;
@@ -2546,6 +2558,7 @@ const FieldEditor = (() => {
       if (!resizing) return;
       resizing = false;
       handle.releasePointerCapture(evt.pointerId);
+      selectField(field);
       if (onPagesChanged) onPagesChanged();
     });
   }
@@ -2628,7 +2641,7 @@ const FieldEditor = (() => {
   return {
     init, loadPdfBytes, loadFromTemplate,
     zoomIn, zoomOut, fitToView, goToPage,
-    getPageCount, getCurrentPageIndex, getPages, getSignatureFields, getActiveSignatureField, setActiveSignatureForField,
+    getPageCount, getCurrentPageIndex, getPages, getSignatureFields, fitAddressRows, getActiveSignatureField, setActiveSignatureForField,
     setSignatureOrder, setSignaturePreview, getSignaturePreview, getSignatureSample, setArmedFieldType, attachDrawHandlers, renderFieldBoxes, removeField, setPrintPreviewVisible,
   };
 })();
@@ -2842,6 +2855,16 @@ const Forms = (() => {
         ? '住所は枠の高さに合わせて折り返します。6ptでも収まらない場合は出力を止めます。試し印字でご確認ください。'
         : 'PDF出力に近い印字見本が枠内に表示されます。日本語フォントや実際の文字量は「試し印字」で最終確認してください。';
       container.appendChild(hint);
+    }
+
+    if (['address','recipient_address'].includes(field.type)) {
+      const rowsLabel = document.createElement('label'); rowsLabel.className = 'field-label'; rowsLabel.textContent = '住所欄の行数（枠の高さ）';
+      const rowsSelect = document.createElement('select');
+      [['custom','自由調整（現在の高さを維持）'],['2','2行分：住所＋建物名'],['3','3行分：長い住所・建物名'],['4','4行分：さらに余裕を持たせる']].forEach(([value,text])=>{const option=document.createElement('option');option.value=value;option.textContent=text;rowsSelect.appendChild(option);});
+      rowsSelect.value = field.addressRows ? String(field.addressRows) : 'custom';
+      rowsSelect.addEventListener('change',()=>{ if(rowsSelect.value==='custom')delete field.addressRows;else field.addressRows=Number(rowsSelect.value);callbacks.onChange(); });
+      rowsLabel.appendChild(rowsSelect);container.appendChild(rowsLabel);
+      const rowsHint=document.createElement('p');rowsHint.className='side-panel-hint';rowsHint.textContent='行数を選ぶと、文字サイズに合わせて枠の高さを調整します。文字サイズを変えたときも追従します。枠の角をドラッグすると自由調整へ戻ります。';container.appendChild(rowsHint);
     }
 
     // 署名欄は活字ではなく手書き画像なので、実際に描かれた署名の大きさによっては
@@ -5719,7 +5742,7 @@ const VoidFlow = (() => {
       '「＋ テンプレートを作る」または「新しいテンプレートを作る」を押し、「PDFを選ぶ」で未記入の原本を選びます。',
       '左の「手書き署名」を押してから、PDFの署名する場所をドラッグし、四角い枠を描きます。枠を選ぶと移動・サイズ調整・項目設定ができます。',
       '住所や日付など、書面に必要な項目を同じ方法で配置します。氏名・住所などがどの署名欄に対応するか、設定を確認してください。',
-      '文字の枠を選び、文字サイズのバーまたは数値で調整します。枠内の「印字見本」は架空の例で、契約時には入力内容が入ります。見本は表示を切り替えられます。',
+      '文字の枠を選び、文字サイズのバーまたは数値で調整します。住所欄は「住所欄の行数（枠の高さ）」で2・3・4行分を選ぶと、高さが文字サイズに合わせて調整されます。枠の角をドラッグすると自由調整に戻ります。枠内の「印字見本」は架空の例で、契約時には入力内容が入ります。見本は表示を切り替えられます。',
       '署名者の氏名・住所・続柄・日付・確認チェックは、直前に配置または選択した署名欄へ自動で割り当てます。画面上の「次の署名者項目の割当先」で確認できます。別の人の項目を置くときは、その署名欄を押すか「どの署名欄の項目か」を変更してください。利用者本人の氏名・住所は共通情報です。複数ページの書面は「次のページ」で移動し、必要なページにも枠を配置します。書式名と署名方法を設定し、左パネル下部の「テンプレートを保存」を押します。署名欄は設定パネルの「この欄で試し書き」から記入し、「書面で確認」で配置結果を確認できます。テストの筆跡は書式に保存されません。「試し印字を確認」では全体の印字位置も確認してください。'
     ], note:'テンプレートにはPDF全体が保存されます。実際の利用者名や署名が入ったPDFは原本として使わないでください。印字が収まらない場合は、枠を広げる・高さを増やす・文字サイズを調整します。'},
     {title:'3. 署名欄と氏名・住所欄の使い分け', rows:[
@@ -6047,7 +6070,7 @@ const VoidFlow = (() => {
       Forms.renderFieldEditPanel(el.fieldEditPanel, field, {
         signatureFields: FieldEditor.getSignatureFields(),
         signingMode: q('template-signing-mode').value,
-        onChange: () => FieldEditor.renderFieldBoxes(),
+        onChange: () => { FieldEditor.fitAddressRows(field); FieldEditor.renderFieldBoxes(); },
         onOrderChange: (item, position) => { FieldEditor.setSignatureOrder(item, position); },
         onSignatureTest: openSignatureTest,
         // 「どの署名欄の項目か」の選択直後は、枠だけでなく警告文の表示も
