@@ -2,26 +2,23 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
-<title>電子契約アプリ（介護事業所向け）</title>
+<meta name="viewport" content=" width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
+<title>実務フロー検証版｜電子契約アプリ</title>
 <style>
-/* ポップで視認性の良いデザイン（丸ゴシック・パステル・角丸）。
-   madori_app/genogram_web/shinsei_form_appと同じデザイン言語(配色トークン・角丸ボタン等)を
-   踏襲しつつ、他アプリと被らないインディゴ×ゴールドの配色にしている。
-   署名フロー画面は高齢者・タブレット操作を考慮し、ボタンや文字を他画面より大きめにする。 */
+/* 書面の確認と署名に集中できる、落ち着いた業務画面。 */
 
 :root {
-  --color-bg: #f4f4fb;
-  --color-header-start: #7c83fd;
-  --color-header-end: #4b5cc4;
-  --color-primary: #5563d1;
-  --color-primary-dark: #3c47a8;
-  --color-secondary: #e8a33d;
-  --color-secondary-dark: #c8862a;
-  --color-danger: #e0575a;
+  --color-bg: #f3f5f7;
+  --color-header-start: #ffffff;
+  --color-header-end: #ffffff;
+  --color-primary: #264b70;
+  --color-primary-dark: #1d3c5a;
+  --color-secondary: #466780;
+  --color-secondary-dark: #34536d;
+  --color-danger: #b42318;
   --color-card: #ffffff;
-  --color-border: #dcdcf2;
-  --color-text: #2f3b52;
+  --color-border: #d3dbe3;
+  --color-text: #22313f;
   --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
@@ -31,7 +28,7 @@
 
 body {
   margin: 0;
-  font-family: -apple-system, "Hiragino Maru Gothic ProN", "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
+  font-family: -apple-system, "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
   background: var(--color-bg);
   color: var(--color-text);
   display: flex;
@@ -96,7 +93,7 @@ input, textarea {
   font-weight: bold;
   color: #ffffff;
   background: rgba(255, 255, 255, 0.2);
-  border-radius: 999px;
+  border-radius: 6px;
   padding: 5px 12px;
   text-decoration: none;
   white-space: nowrap;
@@ -112,7 +109,7 @@ input, textarea {
 
 .tool-button {
   border: none;
-  border-radius: 999px;
+  border-radius: 6px;
   padding: 5px 11px;
   background: rgba(255, 255, 255, 0.92);
   color: var(--color-primary-dark);
@@ -141,9 +138,9 @@ input, textarea {
 
 .tool-button-small {
   border: none;
-  border-radius: 999px;
+  border-radius: 6px;
   padding: 4px 10px;
-  background: #eceafb;
+  background: #f0f3f6;
   color: var(--color-primary-dark);
   font-weight: bold;
   font-size: 12px;
@@ -151,7 +148,7 @@ input, textarea {
 }
 
 .tool-button-small:hover {
-  background: #dcd9f6;
+  background: #e5ebf1;
 }
 
 .tool-button-danger {
@@ -305,7 +302,7 @@ input, textarea {
 
 .palette-button:hover {
   border-color: var(--color-primary);
-  background: #eceafb;
+  background: #f0f3f6;
 }
 
 .palette-button.is-armed {
@@ -337,7 +334,7 @@ input, textarea {
   align-items: center;
   gap: 8px;
   background: rgba(255, 255, 255, 0.92);
-  border-radius: 999px;
+  border-radius: 6px;
   padding: 4px 10px;
   box-shadow: var(--shadow-soft);
 }
@@ -351,14 +348,14 @@ input, textarea {
   align-items: center;
   gap: 6px;
   background: rgba(255, 255, 255, 0.92);
-  border-radius: 999px;
+  border-radius: 6px;
   padding: 4px 6px;
   box-shadow: var(--shadow-soft);
 }
 
 .zoom-btn {
   border: none;
-  border-radius: 999px;
+  border-radius: 6px;
   width: 24px;
   height: 24px;
   background: var(--color-card);
@@ -504,7 +501,7 @@ input, textarea {
   display: none;
   background: #fdfdff;
   border: 2px solid var(--color-border);
-  border-radius: 14px;
+  border-radius: 8px;
   padding: 12px;
   margin-top: 8px;
 }
@@ -553,9 +550,9 @@ input, textarea {
 
 .thumb-size-btn {
   border: none;
-  border-radius: 999px;
+  border-radius: 6px;
   padding: 4px 14px;
-  background: #eceafb;
+  background: #f0f3f6;
   color: var(--color-primary-dark);
   font-weight: bold;
   font-size: 12px;
@@ -563,7 +560,7 @@ input, textarea {
 }
 
 .thumb-size-btn:hover {
-  background: #dcd9f6;
+  background: #e5ebf1;
 }
 
 .thumb-size-btn.is-active {
@@ -648,7 +645,7 @@ input, textarea {
   padding: 16px;
   background: var(--color-card);
   border: 2px solid var(--color-border);
-  border-radius: 14px;
+  border-radius: 8px;
   max-width: 480px;
 }
 
@@ -681,7 +678,7 @@ input, textarea {
   flex: 0 0 auto;
   margin-block: auto;
   background: var(--color-card);
-  border-radius: 20px;
+  border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
   padding: 32px;
   width: 100%;
@@ -708,28 +705,6 @@ input, textarea {
 .signing-filename {
   font-size: 14px;
   color: #6b7c93;
-}
-
-/* 重要事項説明の録音コントロール(任意機能)。文書表示の上に小さく置く */
-.audio-recorder-box {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.audio-recorder-box:empty {
-  margin-bottom: 0; /* 録音非対応環境では空要素になるので余白も消す */
-}
-
-.audio-recorder-status {
-  font-size: 15px;
-  font-weight: bold;
-  color: var(--color-text);
-}
-
-.audio-recorder-status.is-recording {
-  color: var(--color-danger);
 }
 
 .signing-field-label {
@@ -818,7 +793,7 @@ input, textarea {
 }
 
 .big-button-secondary {
-  background: #eceafb;
+  background: #f0f3f6;
   color: var(--color-primary-dark);
 }
 
@@ -918,7 +893,7 @@ input, textarea {
   background: rgba(232, 163, 61, 0.25);
   border-radius: 6px;
   cursor: pointer;
-  animation: signing-field-pulse 1.4s ease-in-out infinite;
+  animation: none;
 }
 
 /* 署名モーダルを開いている間、裏に隠れたハイライト枠のパルスアニメーションを止める。
@@ -942,7 +917,7 @@ body.modal-open .signing-field-highlight {
   color: #ffffff;
   background: var(--color-secondary-dark);
   padding: 3px 8px;
-  border-radius: 999px;
+  border-radius: 6px;
   white-space: nowrap;
   pointer-events: none;
 }
@@ -967,7 +942,7 @@ body.modal-open .signing-field-highlight {
 
 .signing-modal-box {
   background: var(--color-card);
-  border-radius: 20px;
+  border-radius: 10px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
   padding: 28px;
   width: 100%;
@@ -1080,10 +1055,10 @@ body.modal-open .signing-field-highlight {
   position: fixed;
   right: 20px;
   bottom: 20px;
-  background: #2f3b52;
+  background: #22313f;
   color: #ffffff;
   padding: 8px 16px;
-  border-radius: 999px;
+  border-radius: 6px;
   font-size: 13px;
   font-weight: bold;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
@@ -1151,23 +1126,44 @@ input[type="range"] { width:100%; min-height:44px; accent-color:var(--color-prim
   box-sizing:border-box; font-family:inherit; background:#fdfdff;
 }
 
+/* 装飾より操作の優先順位を示す。署名・確認のタップ領域は縮めない。 */
+.app-header { background:#fff; border-bottom:1px solid var(--color-border); box-shadow:none; padding:12px 20px; }
+.app-header h1 { color:var(--color-text); font-size:18px; text-shadow:none; }
+.app-credit { color:#526575; background:transparent; border-radius:0; font-weight:normal; padding:0; }
+.app-credit:hover { background:transparent; text-decoration:underline; }
+.tool-button, .tool-button-small { border:1px solid var(--color-border); box-shadow:none; min-height:40px; padding:8px 12px; font-size:13px; background:#fff; color:var(--color-text); transition:background .15s; }
+.tool-button:hover, .tool-button-small:hover { transform:none; box-shadow:none; background:#eef2f5; }
+.tool-button-primary { background:var(--color-primary); color:#fff; border-color:var(--color-primary); }
+.tool-button-danger { color:var(--color-danger); }
+.big-button { border-radius:8px; box-shadow:none; }
+.big-button:hover { transform:none; box-shadow:none; }
+.signing-card, .signing-modal-box, .modal-box, .template-card { border:1px solid var(--color-border); box-shadow:0 2px 8px rgba(25,40,55,.06); }
+.palette-button, .edit-popup, .welcome-step { background:#fff; border-radius:6px; }
+.welcome-step-emoji { display:none; }
+button:focus-visible, summary:focus-visible { outline:3px solid #759dbf; outline-offset:3px; }
+@media (max-width:600px) { .app-header { padding:10px 12px; } .app-credit { font-size:11px; } .signing-stage { padding:16px; } .signing-card { padding:24px 20px; } }
+
+.big-button-secondary { background:#fff; border:1px solid var(--color-border); color:var(--color-text); }
+.palette-button:hover { background:#eef2f5; }
+.palette-button.is-armed { border-color:var(--color-primary); background:#e9f0f6; }
+
 </style>
 </head>
 <body>
-<div style="padding:12px;background:#fff2cc;color:#513c00;text-align:center;font-weight:bold">実務フロー検証版 2026/10/2・入力改善版｜公開版と保存領域は別です<br><small>架空の情報で、住所・担当者選択・暗号化途中保存と再開をお試しください。</small></div>
+<div style="padding:10px 20px;background:#e8eff5;color:#264b70;border-bottom:1px solid #d3dbe3;font-size:13px;text-align:center">実務フロー検証版 2026/10/2・画面整理版｜架空の情報でお試しください。公開版と保存領域は別です。</div>
   <header class="app-header">
     <div class="app-header-top">
-      <h1>📝 電子契約アプリ</h1>
+      <h1>電子契約アプリ</h1>
       <a class="app-credit" href="https://x.com/kat_t0o" target="_blank" rel="noopener">
         <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M18.9 2H22l-7.6 8.7L23 22h-6.6l-5.2-6.8L5 22H1.9l8.1-9.3L1 2h6.7l4.7 6.2L18.9 2zM16.6 20h1.9L7.5 4H5.5L16.6 20z"/></svg>
         作成：ケアマネカトゥ（@kat_t0o）
       </a>
     </div>
     <nav class="toolbar">
-      <button id="btn-nav-home" class="tool-button" type="button">🏠 ホーム</button>
-      <button id="btn-nav-new-template" class="tool-button" type="button">🆕 新しいテンプレートを作る</button>
-      <button id="btn-nav-void" class="tool-button" type="button">🗂 契約書の訂正・再署名</button>
-      <button id="btn-nav-help" class="tool-button" type="button">❓ 使い方</button>
+      <button id="btn-nav-home" class="tool-button" type="button">ホーム</button>
+      <button id="btn-nav-new-template" class="tool-button" type="button">新しいテンプレートを作る</button>
+      <button id="btn-nav-void" class="tool-button" type="button">契約書の訂正・再署名</button>
+      <button id="btn-nav-help" class="tool-button" type="button">使い方</button>
       <button id="btn-nav-resume" class="tool-button hidden" type="button">途中の契約を再開</button>
       <button id="btn-nav-draft-save" class="tool-button hidden" type="button">途中保存（暗号化）</button>
       <button id="btn-nav-last-export" class="tool-button hidden" type="button">直前の署名書類</button>
@@ -1179,7 +1175,7 @@ input[type="range"] { width:100%; min-height:44px; accent-color:var(--color-prim
     <!-- ホーム画面: テンプレート一覧 -->
     <section id="screen-home" class="app-screen">
       <div class="screen-inner">
-        <h2>📋 テンプレート一覧</h2>
+        <h2>テンプレート一覧</h2>
         <p class="screen-hint">契約書・重要事項説明書のPDFに署名欄を配置したテンプレートです。一度作れば繰り返し使えます。</p>
         <div class="thumb-size-control" id="thumb-size-control">
           <span class="thumb-size-label">表示サイズ</span>
@@ -1192,12 +1188,12 @@ input[type="range"] { width:100%; min-height:44px; accent-color:var(--color-prim
           <button id="btn-operator-settings" class="tool-button-small" type="button">事業所・担当者を登録</button>
           <button id="btn-draft-restore" class="tool-button-small" type="button">途中保存から再開</button>
           <button id="btn-open-verification" class="tool-button-small" type="button">保存した書類を照合</button>
-          <button id="btn-export-templates" class="tool-button-small" type="button">⬇ テンプレートをバックアップ</button>
-          <button id="btn-import-templates" class="tool-button-small" type="button">⬆ バックアップから復元・追加</button>
+          <button id="btn-export-templates" class="tool-button-small" type="button">テンプレートをバックアップ</button>
+          <button id="btn-import-templates" class="tool-button-small" type="button">バックアップから復元・追加</button>
           <input type="file" id="import-templates-input" accept="application/json" class="hidden" />
         </div>
         <div id="cloud-drive-section" class="cloud-drive-box hidden">
-          <h3>☁️ クラウド保存（任意）</h3>
+          <h3>クラウド保存（任意）</h3>
           <p class="side-panel-hint">Googleドライブに接続すると、署名完了時に端末へのダウンロードと同時に、事業所ご自身のドライブにも自動保存されます。</p>
           <p id="cloud-drive-status" class="cloud-drive-status">未接続</p>
           <button id="btn-cloud-drive-toggle" class="tool-button-small" type="button">Googleドライブに接続</button>
@@ -1209,16 +1205,16 @@ input[type="range"] { width:100%; min-height:44px; accent-color:var(--color-prim
     <section id="screen-template-editor" class="app-screen">
       <div class="editor-layout">
         <aside class="side-panel">
-          <h2>📄 PDFを選ぶ</h2><p class="side-panel-hint">未記入の原本PDFを使ってください。PDF全体が端末とバックアップに保存されます。</p>
+          <h2> PDFを選ぶ</h2><p class="side-panel-hint">未記入の原本PDFを使ってください。PDF全体が端末とバックアップに保存されます。</p>
           <input type="file" id="pdf-file-input" accept="application/pdf" />
-          <h2>✍️ 項目を配置</h2>
+          <h2>項目を配置</h2>
           <p class="side-panel-hint">枠内の氏名・住所・続柄は架空の「印字見本」です。実際の契約には入力した内容が印字されます。</p>
           <label class="checkbox-row"><input type="checkbox" id="toggle-print-preview" checked />印字見本を表示</label>
           <p class="side-panel-hint">ボタンを押してから、PDF上をドラッグして四角を描くと項目が追加されます。</p>
           <p class="side-panel-hint">まず「手書き署名」を配置。PDFに署名とは別の氏名欄がある場合だけ、氏名（活字）を追加します。署名が氏名欄を兼ねる書式なら追加不要です。</p>
           <div id="field-palette" class="fixture-palette"></div>
           <div id="field-edit-panel" class="edit-popup"></div>
-          <h2>💾 テンプレートとして保存</h2>
+          <h2>テンプレートとして保存</h2>
           <label class="field-label">この書式の署名方法
             <select id="template-signing-mode">
               <option value="single">本人または家族の1人で完結（標準）</option>
@@ -1239,7 +1235,7 @@ input[type="range"] { width:100%; min-height:44px; accent-color:var(--color-prim
           <label class="field-label">版のメモ（任意）
             <input type="text" id="template-version-label-input" placeholder="例：2026年報酬改定対応版" />
           </label>
-          <button id="btn-save-template" class="tool-button tool-button-primary" type="button">💾 テンプレートを保存</button>
+          <button id="btn-save-template" class="tool-button tool-button-primary" type="button">テンプレートを保存</button>
           <details>
             <summary>試し印字の内容</summary>
             <label class="field-label">見本の氏名<input id="preview-name" value="山田 太郎" /></label>
@@ -1317,7 +1313,7 @@ input[type="range"] { width:100%; min-height:44px; accent-color:var(--color-prim
     <!-- 無効化・再契約画面 -->
     <section id="screen-void" class="app-screen">
       <div class="screen-inner">
-        <h2>🗂 契約書の訂正・再署名</h2>
+        <h2>契約書の訂正・再署名</h2>
         <p class="screen-hint">元のPDFを書き換えず、訂正・再署名の理由を別の記録に残します。この操作だけで契約の無効や解除が確定するものではありません。相手方と確認してから再署名・交付してください。</p>
         <label class="field-label">訂正の対象となる署名済みPDF
           <input type="file" id="void-pdf-input" accept="application/pdf" />
@@ -1331,7 +1327,7 @@ input[type="range"] { width:100%; min-height:44px; accent-color:var(--color-prim
         <label class="field-label">手続き実施者名（必須）
           <input type="text" id="void-staff-name-input" placeholder="例：担当ケアマネジャー名" />
         </label>
-        <button id="btn-void-confirm" class="tool-button tool-button-primary" type="button">🗂 訂正記録を作成</button>
+        <button id="btn-void-confirm" class="tool-button tool-button-primary" type="button">訂正記録を作成</button>
         <div id="void-result" class="void-result hidden"><div id="void-downloads"></div>
           <p>訂正記録を作成しました。続けて再署名する場合は、使うテンプレートを選んでください。</p>
           <div id="void-resign-template-list" class="template-grid"></div>
@@ -2395,14 +2391,14 @@ const FieldEditor = (() => {
 // pure DOM操作のみ、テンプレート化エンジンは使わない(house styleに合わせる)。
 const Forms = (() => {
   const FIELD_TYPE_OPTIONS = [
-    { type: 'signature', label: '✍️ 手書き署名', hint: 'PDFの署名する場所に配置します。書く人は契約時に選びます。' },
-    { type: 'date', label: '📅 日付欄', hint: '署名した日付が自動で印字されます(西暦/和暦を選択可)。' },
-    { type: 'recipient_name', label: '👤 利用者氏名（活字）', hint: 'PDFに署名とは別の氏名欄がある時だけ配置。家族が署名しても利用者本人の名前を印字します。' },
-    { type: 'recipient_address', label: '🏠 利用者住所欄', hint: '契約当事者である利用者本人の住所です。家族が署名・代筆しても変わりません。' },
-    { type: 'name', label: '🈸 署名者氏名（活字）', hint: 'PDFに署名とは別の氏名欄がある時だけ配置。実際に署名した人の名前を印字します。' },
-    { type: 'address', label: '🏠 署名者住所欄', hint: '実際に署名・代筆した人の住所が、活字で印字されます。' },
-    { type: 'relationship', label: '👪 続柄欄', hint: 'ご家族が記入する場合、入力された続柄(例：長男)が印字されます。' },
-    { type: 'declaration_checkbox', label: '☑️ 確認チェック欄', hint: '署名時に確認した内容を示します。' },
+    { type: 'signature', label: '手書き署名', hint: 'PDFの署名する場所に配置します。書く人は契約時に選びます。' },
+    { type: 'date', label: '日付欄', hint: '署名した日付が自動で印字されます(西暦/和暦を選択可)。' },
+    { type: 'recipient_name', label: '利用者氏名（活字）', hint: 'PDFに署名とは別の氏名欄がある時だけ配置。家族が署名しても利用者本人の名前を印字します。' },
+    { type: 'recipient_address', label: '利用者住所欄', hint: '契約当事者である利用者本人の住所です。家族が署名・代筆しても変わりません。' },
+    { type: 'name', label: '署名者氏名（活字）', hint: 'PDFに署名とは別の氏名欄がある時だけ配置。実際に署名した人の名前を印字します。' },
+    { type: 'address', label: '署名者住所欄', hint: '実際に署名・代筆した人の住所が、活字で印字されます。' },
+    { type: 'relationship', label: '続柄欄', hint: 'ご家族が記入する場合、入力された続柄(例：長男)が印字されます。' },
+    { type: 'declaration_checkbox', label: '確認チェック欄', hint: '署名時に確認した内容を示します。' },
   ];
 
   function renderFieldPalette(container, onArmed) {
@@ -2492,7 +2488,7 @@ const Forms = (() => {
       if (signatureFields.length >= 2 && !field.linkedFieldId) {
         const warn = document.createElement('p');
         warn.className = 'side-panel-hint field-link-warning';
-        warn.textContent = '⚠️ 署名欄が複数あります。このままだと印字先が決まらないため、必ず選んでください。';
+        warn.textContent = '署名欄が複数あります。このままだと印字先が決まらないため、必ず選んでください。';
         container.appendChild(warn);
       }
     }
@@ -2657,7 +2653,7 @@ const Forms = (() => {
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
     deleteBtn.className = 'popup-delete-button';
-    deleteBtn.textContent = '🗑 この項目を削除';
+    deleteBtn.textContent = 'この項目を削除';
     deleteBtn.addEventListener('click', () => callbacks.onDelete());
     container.appendChild(deleteBtn);
   }
@@ -2701,21 +2697,21 @@ const Forms = (() => {
       const useBtn = document.createElement('button');
       useBtn.type = 'button';
       useBtn.className = 'tool-button-small';
-      useBtn.textContent = '📝 これで署名する';
+      useBtn.textContent = 'これで署名する';
       useBtn.addEventListener('click', () => callbacks.onUse(t.id));
       actions.appendChild(useBtn);
 
       const editBtn = document.createElement('button');
       editBtn.type = 'button';
       editBtn.className = 'tool-button-small';
-      editBtn.textContent = '✏️ 署名欄を編集';
+      editBtn.textContent = '署名欄を編集';
       editBtn.addEventListener('click', () => callbacks.onEdit(t.id));
       actions.appendChild(editBtn);
 
       const deleteBtn = document.createElement('button');
       deleteBtn.type = 'button';
       deleteBtn.className = 'tool-button-small tool-button-danger';
-      deleteBtn.textContent = '🗑 削除';
+      deleteBtn.textContent = '削除';
       deleteBtn.addEventListener('click', () => callbacks.onDelete(t.id));
       actions.appendChild(deleteBtn);
 
@@ -2891,60 +2887,6 @@ const SignaturePad = (() => {
   }
 
   return { create };
-})();
-
-</script>
-  <script>
-// 重要事項説明の様子を録音するための部品。MediaRecorder APIを使う。
-// signature_pad.jsと同じく「作る・使う・片付ける」だけのシンプルな部品として切り出す。
-// 録音データは他のセッション情報と同じくメモリ内のみで保持し、自動保存はしない。
-const AudioRecorder = (() => {
-  function isSupported() {
-    return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
-  }
-
-  // ブラウザ任せ(mimeType指定なし)だと再生しにくい形式が選ばれることがあるため、
-  // 再生互換性の高い順に明示的に希望する。audio/mp4(m4a相当)はWindows・iPad・Macの
-  // 標準プレイヤーでそのまま開けるが、Chrome/FirefoxはMediaRecorderでの録音に対応していない
-  // ためaudio/webmにフォールバックする
-  function pickMimeType() {
-    const preferred = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg'];
-    return preferred.find((t) => MediaRecorder.isTypeSupported(t)) || '';
-  }
-
-  // マイクの使用許可を求めて録音を開始する。
-  // 戻り値のstop()を呼ぶと録音を止めてBlobを返す(Promise)。cancel()は保存せずに中断する。
-  async function start() {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const chunks = [];
-    const mimeType = pickMimeType();
-    const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-    recorder.addEventListener('dataavailable', (evt) => {
-      if (evt.data && evt.data.size > 0) chunks.push(evt.data);
-    });
-
-    // マイクを確実に解放するため、停止時は必ずtrackをstopする
-    const stopped = new Promise((resolve) => {
-      recorder.addEventListener('stop', () => {
-        stream.getTracks().forEach((t) => t.stop());
-        resolve(new Blob(chunks, { type: recorder.mimeType || 'audio/webm' }));
-      });
-    });
-
-    recorder.start();
-
-    return {
-      stop() {
-        recorder.stop();
-        return stopped;
-      },
-      cancel() {
-        stream.getTracks().forEach((t) => t.stop());
-      },
-    };
-  }
-
-  return { isSupported, start };
 })();
 
 </script>
@@ -4058,11 +4000,7 @@ const VoidFlow = (() => {
   let voidPdfFile = null;
   const templateThumbCache = new Map(); // key: id+'_'+updatedAt -> dataURL(セッション中のみのキャッシュ)
 
-  // 重要事項説明の録音状態。署名データと同じくメモリ内のみで保持し自動保存しない。
-  // activeRecording: AudioRecorder.start()の戻り値(録音中のみ)。sessionAudioBlob: 録音済みのBlob
-  let activeRecording = null;
-  let recordingStartedAt = null;
-  let recordingTimerHandle = null;
+  // 従来版の途中保存ファイルに含まれる音声だけ、再保存・照合のため保持する。
   let sessionAudioBlob = null;
   // 完成したバイト列を再生成せず再保存する。端末への自動保存はしない。
   let completedExport = null;
@@ -4143,7 +4081,7 @@ const VoidFlow = (() => {
     }
     el.cloudDriveSection.classList.remove('hidden');
     if (CloudDrive.isConnected()) {
-      el.cloudDriveStatus.textContent = '✅ 接続済み（署名完了時に自動で保存されます）';
+      el.cloudDriveStatus.textContent = '接続済み（署名完了時に自動で保存されます）';
       el.cloudDriveToggleBtn.textContent = '接続を解除';
     } else {
       el.cloudDriveStatus.textContent = '未接続';
@@ -4199,12 +4137,6 @@ const VoidFlow = (() => {
     q('btn-nav-last-export').classList.add('hidden');
     currentSigningTemplate = template;
     signingUiState = { phase: 'recipient_name', draft: {}, resignOf: resignOf || null };
-    // 前回のセッションの録音が残っていたら破棄する(マイクは既に解放済みのはずだが念のため)
-    if (activeRecording) activeRecording.cancel();
-    activeRecording = null;
-    recordingStartedAt = null;
-    if (recordingTimerHandle) clearInterval(recordingTimerHandle);
-    recordingTimerHandle = null;
     sessionAudioBlob = null;
     showScreen('signing');
     renderSigningStep();
@@ -4361,7 +4293,7 @@ const VoidFlow = (() => {
     if (signingUiState.phase === 'recipient_name') {
       const mode = currentSigningTemplate.signingMode || 'legacy';
       const recipientAddressFields = currentSigningTemplate.pages.flatMap(page => page.fields).filter(field => field.type === 'recipient_address');
-      const card = buildCard('👤 署名前の確認（事業者用）', '<p>利用者氏名と、今回記入する方を確認してから端末をお渡しください。ご家族が代筆・代理署名する場合も利用者本人の情報は変わりません。</p>');
+      const card = buildCard('署名前の確認（事業者用）', '<p>利用者氏名と、今回記入する方を確認してから端末をお渡しください。ご家族が代筆・代理署名する場合も利用者本人の情報は変わりません。</p>');
       const saveHint = document.createElement('p'); saveHint.className = 'side-panel-hint'; saveHint.textContent = '再読み込みや端末の終了に備え、区切りのよい時点で上の「途中保存（暗号化）」からファイルを保存してください。最後に保存した時点から再開できます。'; card.append(saveHint);
       const label = document.createElement('label');
       label.className = 'signing-field-label';
@@ -4480,8 +4412,8 @@ const VoidFlow = (() => {
       const progress = SigningFlow.getProgress();
       // 署名欄はテンプレート側で本人/家族を固定しないため、ここでは誰が署名するかまだ分からない
       // (次の署名モーダルでその場で選んでもらう)
-      const card = buildCard('📱 端末をお渡しください',
-        '<p class="signing-progress">署名 ' + progress.current + ' / ' + progress.total + '</p>' +
+      const card = buildCard('端末をお渡しください',
+        '<p class="signing-progress">署名 '+ progress.current + ' / '+ progress.total + '</p>' +
         '<p>次に署名される方に端末をお渡しし、内容をご確認いただいた上で「続ける」を押してください。</p>');
       const continueWith = draft => {
         signingUiState.phase = 'document';
@@ -4508,7 +4440,7 @@ const VoidFlow = (() => {
       // (例：本人の署名だけで契約が完結し、ご家族の署名は不要というケース)。
       // 「続ける」の陰に隠れる二次ボタンにせず、同じくらい選びやすい見た目にしておく
       if (!field.required && SigningFlow.getSession().signingMode === 'legacy') {
-        const skipBtn = bigButton('✅ ここで契約を終了する（この署名は不要）', () => {
+        const skipBtn = bigButton('ここで契約を終了する（この署名は不要）', () => {
           SigningFlow.skipCurrentField();
           if (SigningFlow.isQueueComplete()) {
             signingUiState.phase = 'review';
@@ -4533,8 +4465,8 @@ const VoidFlow = (() => {
     if (signingUiState.phase === 'review') {
       const session = SigningFlow.getSession();
       const recipientLine = session.recipientName
-        ? '<p><strong>対象者: ' + escapeHtml(session.recipientName) + ' 様</strong></p>' : '';
-      const card = buildCard('✅ 内容の確認', recipientLine + '<p>以下の内容で契約を確定します。よろしければ「確定してPDFを作成」を押してください。</p>');
+        ? '<p><strong>対象者: ' + escapeHtml(session.recipientName) + '様</strong></p>' : '';
+      const card = buildCard('内容の確認', recipientLine + '<p>以下の内容で契約を確定します。よろしければ「確定してPDFを作成」を押してください。</p>');
       if (session.eventLog.some(event => event.reason === 'additional_not_required')) {
         const note = document.createElement('p'); note.textContent = '追加署名：署名前に「今回は不要」と確認済み'; card.append(note);
       }
@@ -4573,7 +4505,7 @@ const VoidFlow = (() => {
         // 署名者ゼロのまま「署名済みPDF」を作れてしまうと信頼性の根幹に関わるため、明確に止める
         const warn = document.createElement('p');
         warn.className = 'side-panel-hint';
-        warn.textContent = '⚠️ 署名者が1人もいないため、契約を確定できません。ホームに戻ってやり直してください。';
+        warn.textContent = '署名者が1人もいないため、契約を確定できません。ホームに戻ってやり直してください。';
         card.appendChild(warn);
         const homeBtn = bigButton('ホームに戻る', () => { showScreen('home'); renderHomeTemplateList(); }, true);
         card.appendChild(homeBtn);
@@ -4581,7 +4513,7 @@ const VoidFlow = (() => {
         addReviewControls(card, session);
         // 連打で二重にPDFが作られる(重複ダウンロード)のを防ぐため、押した瞬間に無効化する。
         // 失敗した場合だけ再度押せるように戻す(finalizeSigning側でreturnする経路)
-        const finalizeBtn = bigButton('🔒 確定してPDFを作成', () => {
+        const finalizeBtn = bigButton('確定してPDFを作成', () => {
           if (!reviewReady()) return;
           finalizeBtn.disabled = true;
           finalizeSigning().finally(() => { finalizeBtn.disabled = false; });
@@ -4614,7 +4546,7 @@ const VoidFlow = (() => {
     const title = document.createElement('h3'); title.textContent = restore ? '途中保存から再開' : '途中保存（暗号化）';
     const note = document.createElement('p');
     note.textContent = restore ? '保存したファイルとパスワードを指定します。自動保存ではなく、最後に手動保存した時点から再開します。'
-      : '確定済みの署名と入力をパスワード付きファイルへ保存します。編集中の手書き署名は先に確定してください。録音中の場合は保存時に停止します。パスワードを忘れると復元できません。';
+      : '確定済みの署名と入力をパスワード付きファイルへ保存します。編集中の手書き署名は先に確定してください。パスワードを忘れると復元できません。';
     box.append(title,note);
     let fileInput = null;
     if (restore) {
@@ -4663,8 +4595,6 @@ const VoidFlow = (() => {
             audio = new Blob([DraftVault.fromBase64(state.audio.bytes)],{type:state.audio.type});
           }
           if ((hasPendingSigning() || completedExport && !completedExport.confirmed) && !confirm('今の契約データを破棄し、途中保存した契約へ戻りますか？')) return;
-          if (activeRecording) activeRecording.cancel(); activeRecording = null;
-          if (recordingTimerHandle) clearInterval(recordingTimerHandle); recordingTimerHandle = null; recordingStartedAt = null;
           if (state.flow) SigningFlow.restoreState(state.flow);
           currentSigningTemplate = state.template; completedExport = null; sessionAudioBlob = audio;
           const phase = state.flow ? SigningFlow.isQueueComplete() ? 'review' : 'handoff' : 'recipient_name';
@@ -4672,11 +4602,6 @@ const VoidFlow = (() => {
           q('btn-nav-resume').classList.remove('hidden'); q('btn-nav-draft-save').classList.remove('hidden'); q('btn-nav-last-export').classList.add('hidden');
           signingBusy = false; close(); showScreen('signing'); renderSigningStep(); showToast('途中保存した時点から再開しました');
         } else {
-          if (activeRecording) {
-            const recorder = activeRecording; activeRecording = null;
-            sessionAudioBlob = await recorder.stop();
-            if (recordingTimerHandle) clearInterval(recordingTimerHandle); recordingTimerHandle = null;
-          }
           const state = {format:'keiyaku-draft-state',version:1,template:currentSigningTemplate,
             flow:signingUiState.phase === 'recipient_name' ? null : SigningFlow.exportState(),
             ui:{phase:signingUiState.phase,draft:signingUiState.draft,review:signingUiState.review,resignOf:signingUiState.resignOf},
@@ -4871,88 +4796,16 @@ const VoidFlow = (() => {
     return template.pages.findIndex(p => p.fields.some(f => f.id === fieldId));
   }
 
-  function formatElapsed(ms) {
-    const totalSec = Math.floor(ms / 1000);
-    return Math.floor(totalSec / 60) + ':' + String(totalSec % 60).padStart(2, '0');
-  }
-
-  // 重要事項説明の録音コントロール。任意機能なので、非対応環境では何も出さずに
-  // 署名フロー自体は普通に進められるようにする。状態(idle/録音中/録音済み)は
-  // モジュール変数(activeRecording/sessionAudioBlob)で持ち、document画面が再描画される
-  // 度にこの関数も呼ばれるので、その時々の状態に合わせて作り直す
-  function renderAudioRecorderControls() {
-    const wrap = document.createElement('div');
-    wrap.className = 'audio-recorder-box';
-    if (!AudioRecorder.isSupported()) return wrap;
-
-    if (activeRecording) {
-      const status = document.createElement('span');
-      status.className = 'audio-recorder-status is-recording';
-      wrap.appendChild(status);
-      const updateElapsed = () => { status.textContent = '🔴 録音中… ' + formatElapsed(Date.now() - recordingStartedAt); };
-      updateElapsed();
-      if (recordingTimerHandle) clearInterval(recordingTimerHandle);
-      recordingTimerHandle = setInterval(updateElapsed, 1000);
-
-      const stopBtn = document.createElement('button');
-      stopBtn.type = 'button';
-      stopBtn.className = 'tool-button-small';
-      stopBtn.textContent = '⏹ 録音を終了';
-      stopBtn.addEventListener('click', async () => {
-        clearInterval(recordingTimerHandle);
-        recordingTimerHandle = null;
-        const rec = activeRecording;
-        activeRecording = null;
-        sessionAudioBlob = await rec.stop();
-        renderSigningStep();
-      });
-      wrap.appendChild(stopBtn);
-      return wrap;
-    }
-
-    if (sessionAudioBlob) {
-      const status = document.createElement('span');
-      status.className = 'audio-recorder-status';
-      status.textContent = '🎤 説明の録音を保存しました';
-      wrap.appendChild(status);
-      const redoBtn = document.createElement('button');
-      redoBtn.type = 'button';
-      redoBtn.className = 'tool-button-small';
-      redoBtn.textContent = '録音をやり直す';
-      redoBtn.addEventListener('click', () => { sessionAudioBlob = null; renderSigningStep(); });
-      wrap.appendChild(redoBtn);
-      return wrap;
-    }
-
-    const startBtn = document.createElement('button');
-    startBtn.type = 'button';
-    startBtn.className = 'tool-button-small';
-    startBtn.textContent = '🎙️ 重要事項説明の様子を録音する（任意）';
-    startBtn.addEventListener('click', async () => {
-      try {
-        activeRecording = await AudioRecorder.start();
-        recordingStartedAt = Date.now();
-        renderSigningStep();
-      } catch (e) {
-        console.error('マイクを使用できませんでした', e);
-        alert('マイクを使用できませんでした。録音せずに進めることもできます。\n' + e.message);
-      }
-    });
-    wrap.appendChild(startBtn);
-    return wrap;
-  }
-
   // 文書プレビュー画面: 実際のPDFを表示し、今から署名する欄をハイライトする。
   // タップするとその場で署名モーダルが開く(field_editor.jsと同じPdfUtilsの描画を流用)。
   async function renderDocumentPhase(stage) {
     const field = SigningFlow.getCurrentField();
     const progress = SigningFlow.getProgress();
 
-    const card = buildCard('📄 内容のご確認とご署名',
-      '<p class="signing-progress">署名 ' + progress.current + ' / ' + progress.total + '</p>' +
+    const card = buildCard('内容のご確認とご署名',
+      '<p class="signing-progress">署名 '+ progress.current + ' / '+ progress.total + '</p>' +
       '<p>契約内容をご確認いただき、下の書式内でハイライトされた署名欄をタップしてください。</p>');
 
-    card.appendChild(renderAudioRecorderControls());
 
     const wrap = document.createElement('div');
     wrap.className = 'signing-doc-wrap';
@@ -5083,7 +4936,7 @@ const VoidFlow = (() => {
     box.className = 'signing-modal-box';
 
     const title = document.createElement('h3');
-    title.textContent = '✍️ ご記入';
+    title.textContent = 'ご記入';
     box.appendChild(title);
 
     // 署名欄は役割をテンプレート側で固定しない設計のため、まず必ずどちらの立場で
@@ -5443,7 +5296,7 @@ const VoidFlow = (() => {
     box.className = 'signing-modal-box';
 
     const title = document.createElement('h3');
-    title.textContent = '⬇ バックアップするテンプレートを選択';
+    title.textContent = 'バックアップするテンプレートを選択';
     box.appendChild(title);
 
     const selectAllRow = document.createElement('label');
@@ -5494,9 +5347,9 @@ const VoidFlow = (() => {
   // ===== 初回案内 =====
   const WELCOME_SEEN_KEY = 'preview_practical_20261002_keiyaku_welcome_seen_v1';
   const WELCOME_STEPS = [
-    { emoji: '📄', title: 'PDFに署名欄を配置', text: '「新しいテンプレートを作る」からPDFを選び、署名欄・氏名欄などをドラッグで配置します。' },
-    { emoji: '💾', title: 'テンプレートとして保存', text: '書式名を付けて保存すれば、次回から同じ書式をすぐ使い回せます。' },
-    { emoji: '✍️', title: 'その場で署名', text: '「これで署名する」→タブレットをお渡しすれば、対面でその場署名が完結します。' },
+    { emoji: '', title: 'PDFに署名欄を配置', text: '「新しいテンプレートを作る」からPDFを選び、署名欄・氏名欄などをドラッグで配置します。' },
+    { emoji: '', title: 'テンプレートとして保存', text: '書式名を付けて保存すれば、次回から同じ書式をすぐ使い回せます。' },
+    { emoji: '', title: 'その場で署名', text: '「これで署名する」→タブレットをお渡しすれば、対面でその場署名が完結します。' },
   ];
 
   function showWelcomeOverlay() {
@@ -5506,7 +5359,7 @@ const VoidFlow = (() => {
     box.className = 'signing-modal-box welcome-modal-box';
 
     const title = document.createElement('h3');
-    title.textContent = '🖊️ ようこそ、電子契約アプリへ！';
+    title.textContent = '電子契約アプリの使い方';
     box.appendChild(title);
 
     const lead = document.createElement('p');
@@ -5591,13 +5444,6 @@ const VoidFlow = (() => {
     pendingSession.deliveryPlan = { method: review.method, electronicConsent: review.method === 'electronic' && review.electronicConsent };
     SigningFlow.completeSession();
     const session = SigningFlow.getSession();
-    // 録音の停止し忘れのまま確定された場合は、ここで自動的に止めて確保する(録音を無駄にしない)
-    if (activeRecording) {
-      const rec = activeRecording;
-      activeRecording = null;
-      if (recordingTimerHandle) { clearInterval(recordingTimerHandle); recordingTimerHandle = null; }
-      sessionAudioBlob = await rec.stop();
-    }
     // このアプリは個人情報を含む署名データを一切自動保存しない設計(プライバシー優先)のため、
     // ここでPDF生成に失敗すると全署名者の入力がやり直しになってしまう。
     // 必ずエラーを画面に伝え、review画面に留まって再試行できるようにする(sessionはまだ生きている)
@@ -5718,7 +5564,7 @@ const VoidFlow = (() => {
     const banner = document.createElement('div');
     banner.className = 'lib-missing-banner';
     banner.innerHTML =
-      '<h2>⚠️ 必要なファイルが読み込めていません</h2>' +
+      '<h2> 必要なファイルが読み込めていません</h2>' +
       '<p>このHTMLファイルと同じ場所に「lib」フォルダが一緒に置かれていないと動作しません。</p>' +
       '<p>このHTMLファイルと「lib」フォルダを両方まとめて同じフォルダにコピーしてから、開き直してください。</p>' +
       '<p class="lib-missing-detail">読み込めなかったファイル: ' + missingFiles.join('、') + '</p>';
