@@ -1316,7 +1316,7 @@ html[data-theme="dark"] .signature-tools .signature-clear { color:#ffc2b8; }
 </style>
 </head>
 <body>
-<div style="padding:8px 20px;background:#203e54;color:#dae9f0;border-bottom:1px solid #547182;font-size:12px;text-align:center">実務フロー検証版・途中保存ファイルの選択を改善｜架空の情報でお試しください。</div>
+<div style="padding:8px 20px;background:#203e54;color:#dae9f0;border-bottom:1px solid #547182;font-size:12px;text-align:center">実務フロー検証版・日付欄の文字サイズと見本を改善｜架空の情報でお試しください。</div>
   <header class="app-header">
     <div class="app-header-top">
       <h1>電子契約アプリ</h1>
@@ -1623,7 +1623,7 @@ const Models = (() => {
       signOrder: 1,
       required: true,
       label: '',
-      fontSize: 14, // 新しく配置する活字欄の基準。既存書式は保存済みのサイズを維持する。
+      fontSize: overrides && overrides.type === FIELD_TYPES.DATE ? 16 : 14, // 新規の日付欄は16pt、他の活字欄は14pt。指定済みサイズは維持する。
       signatureScale: 100, // 署名欄のみ使用。枠に収めた(object-fit:contain)後にさらに掛ける表示サイズ(%)
     }, overrides);
     // 続柄欄だけは例外: 「本人から見た続柄」は本人が自分に対して書く概念が存在しないため、
@@ -2290,6 +2290,13 @@ const FieldEditor = (() => {
     relationship: '長女', date: '2026年9月23日', declaration_checkbox: '✓ 確認済み',
   };
 
+  function getPrintPreviewText(field) {
+    if (field.type !== 'date') return PRINT_PREVIEW_TEXT[field.type] || '印字見本';
+    if (field.dateFormat === 'reiwa') return '令和8年9月23日';
+    if (field.dateFormat === 'gregorian_kanji') return '2026年9月23日';
+    return '2026/9/23';
+  }
+
   // 「本人の住所欄と家族の住所欄、両方とも同じデータで上書きされて重なる」という事故が
   // 実際にあった。役割(本人/家族)だけでのマッチングだと、署名欄が複数ある時に
   // どの署名欄の付随項目かが区別できないのが原因だったため、「どの署名欄に属するか」で
@@ -2346,7 +2353,7 @@ const FieldEditor = (() => {
         const printPreview = document.createElement('span');
         printPreview.className = 'field-box-print-preview';
         labelSpan.textContent += '｜印字見本';
-        printPreview.textContent = PRINT_PREVIEW_TEXT[field.type] || '印字見本';
+        printPreview.textContent = getPrintPreviewText(field);
         printPreview.style.fontSize = Math.max(8, (field.fontSize || 11) * zoom.getScale()) + 'px';
         if (field.type === 'address' || field.type === 'recipient_address') printPreview.classList.add('is-multiline');
         box.appendChild(printPreview);
