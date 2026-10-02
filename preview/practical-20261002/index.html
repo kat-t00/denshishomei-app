@@ -1157,11 +1157,6 @@ button:focus-visible, summary:focus-visible { outline:3px solid #759dbf; outline
 .toolbar .tool-button:hover { background:#edf2f4; color:var(--color-primary-dark); }
 #btn-nav-draft-save { border-color:#b4ccc7; background:#f1f7f5; color:#24665d; }
 #screen-home .screen-inner { max-width:1000px; padding:32px; }
-.home-intro { display:flex; align-items:center; justify-content:space-between; gap:24px; padding:28px 30px; margin-bottom:30px; border:1px solid #dae4e5; border-left:4px solid var(--color-accent); border-radius:14px; background:#fff; box-shadow:0 4px 18px rgba(24,52,68,.045); }
-.section-eyebrow { margin:0 0 10px; color:#35756d; font-size:12px; letter-spacing:.09em; font-weight:600; }
-.home-intro h2 { margin:0; color:#203e50; font-size:26px; line-height:1.5; letter-spacing:.025em; }
-.home-intro p:not(.section-eyebrow) { margin:10px 0 0; font-size:14px; line-height:1.7; color:#667783; }
-.home-intro button { flex:0 0 auto; min-height:48px; padding:12px 18px; border-radius:8px; }
 .home-list-title { font-size:18px; margin:0 0 10px; letter-spacing:.02em; }
 .home-tools-title { margin:28px 0 10px; font-size:14px; color:#556976; }
 .backup-actions { margin-top:0; padding-top:14px; border-top:1px solid var(--color-border); }
@@ -1204,8 +1199,6 @@ button:focus-visible, summary:focus-visible { outline:3px solid #759dbf; outline
 .visually-hidden { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
 @media (max-width:600px) {
   .app-header { padding:12px; } #screen-home .screen-inner { padding:20px 16px; }
-  .home-intro { align-items:flex-start; flex-direction:column; padding:22px; gap:18px; }
-  .home-intro h2 { font-size:22px; } .home-intro button { width:100%; }
   .welcome-modal-box { padding:20px; } .help-header { top:-20px; margin:-20px -20px 18px; padding:16px 20px; }
   .help-contents { grid-template-columns:1fr; } .help-sections th { width:36%; }
 }
@@ -1213,10 +1206,38 @@ button:focus-visible, summary:focus-visible { outline:3px solid #759dbf; outline
 .template-card-actions .tool-button-small.tool-button-danger { color:var(--color-danger); }
 @media (prefers-reduced-motion:reduce) { .welcome-modal-box { scroll-behavior:auto; } }
 
+/* キャッチコピーではなく、画面の構造と書類の質感で見分けやすくする。 */
+#screen-home { background:#e9eff3; }
+.template-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:22px; }
+.template-heading h2 { margin:0; font-size:25px; letter-spacing:.035em; }
+.template-heading button { min-height:48px; padding:12px 18px; box-shadow:0 3px 8px rgba(29,66,91,.12); }
+.template-grid { grid-template-columns:repeat(auto-fill,minmax(min(100%,var(--card-min-width,240px)),1fr)); gap:22px; }
+.template-card { padding:0; overflow:hidden; border:1px solid #cbd8e0; background:#fff; box-shadow:0 6px 16px rgba(36,68,88,.085); }
+.template-card-thumb { width:100%; aspect-ratio:1.28; border:0; border-bottom:1px solid #dbe4ea; border-radius:0; padding:20px 34px; background:#dce6ed; }
+.template-card:nth-child(3n+2) .template-card-thumb { background:#dfeae6; }
+.template-card:nth-child(3n) .template-card-thumb { background:#e9e4dc; }
+.template-card-thumb img { width:auto; max-width:100%; height:100%; background:#fff; filter:drop-shadow(0 3px 5px rgba(29,53,66,.22)); }
+.template-card-name { margin:6px 18px 0; font-size:17px; }
+.template-card-meta { margin:0 18px; }
+.template-card-actions { padding:8px 18px 16px; display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.template-card-actions .tool-button-primary { grid-column:1 / -1; }
+.resume-panel { display:grid; grid-template-columns:1fr 1fr; gap:0; margin-top:28px; border:1px solid #c9d8df; border-radius:12px; background:#f8fbfc; overflow:hidden; }
+.resume-panel > div { padding:20px; }
+.resume-panel > div + div { border-left:1px solid #d9e3e8; background:#eef6f3; }
+.resume-panel h3 { font-size:16px; margin:0 0 10px; }
+.resume-panel p { margin:0 0 14px; color:#526875; font-size:13px; line-height:1.8; min-height:70px; }
+.resume-panel button { width:100%; min-height:44px; }
+.resume-panel button:disabled { color:#85949e; background:#edf1f3; cursor:not-allowed; }
+.backup-actions { background:#f7fafb; border:1px solid #d4dfe6; border-radius:10px; padding:16px; }
+.side-panel { background:#f1f5f8; }
+.side-panel > h2 { padding-bottom:10px; border-bottom:2px solid #ccdbe3; }
+.contract-progress { background:#f0f5f7; margin:-8px -8px 26px; padding:16px 12px 8px; border-radius:10px; }
+@media(max-width:600px) { .template-heading { align-items:flex-start; } .template-heading h2 { font-size:22px; } .template-heading button { font-size:12px; padding:10px; } .resume-panel { grid-template-columns:1fr; } .resume-panel > div + div { border-left:0; border-top:1px solid #d9e3e8; } .resume-panel p { min-height:0; } }
+
 </style>
 </head>
 <body>
-<div style="padding:8px 20px;background:#edf4f2;color:#356b63;border-bottom:1px solid #d7e5e1;font-size:12px;text-align:center">実務フロー検証版 2026/10/2・デザイン／使い方更新｜架空の情報でお試しください。公開版と保存領域は別です。</div>
+<div style="padding:8px 20px;background:#edf4f2;color:#356b63;border-bottom:1px solid #d7e5e1;font-size:12px;text-align:center">実務フロー検証版・画面構成と再開導線を更新｜架空の情報でお試しください。</div>
   <header class="app-header">
     <div class="app-header-top">
       <h1>電子契約アプリ</h1>
@@ -1230,7 +1251,7 @@ button:focus-visible, summary:focus-visible { outline:3px solid #759dbf; outline
       <button id="btn-nav-new-template" class="tool-button" type="button">新しいテンプレートを作る</button>
       <button id="btn-nav-void" class="tool-button" type="button">契約書の訂正・再署名</button>
       <button id="btn-nav-help" class="tool-button" type="button">使い方</button>
-      <button id="btn-nav-resume" class="tool-button hidden" type="button">途中の契約を再開</button>
+      <button id="btn-nav-resume" class="tool-button hidden" type="button">入力中の契約に戻る</button>
       <button id="btn-nav-draft-save" class="tool-button hidden" type="button">途中保存（暗号化）</button>
       <button id="btn-nav-last-export" class="tool-button hidden" type="button">直前の署名書類</button>
     </nav>
@@ -1241,12 +1262,10 @@ button:focus-visible, summary:focus-visible { outline:3px solid #759dbf; outline
     <!-- ホーム画面: テンプレート一覧 -->
     <section id="screen-home" class="app-screen">
       <div class="screen-inner">
-        <div class="home-intro">
-          <div><p class="section-eyebrow">対面契約のための電子署名</p><h2>書面を確認し、その場で署名。</h2><p>いつもの契約書を、繰り返し使える署名用の書式に。</p></div>
-          <button id="btn-home-new-template" class="tool-button tool-button-primary" type="button">PDFから書式を作る</button>
+        <div class="template-heading">
+          <h2>テンプレート</h2>
+          <button id="btn-home-new-template" class="tool-button tool-button-primary" type="button">＋ テンプレートを作る</button>
         </div>
-        <h2 class="home-list-title">保存したテンプレート</h2>
-        <p class="screen-hint">契約書・重要事項説明書のPDFに署名欄を配置したテンプレートです。一度作れば繰り返し使えます。</p>
         <div class="thumb-size-control" id="thumb-size-control">
           <span class="thumb-size-label">表示サイズ</span>
           <button type="button" class="thumb-size-btn" data-size="small">小</button>
@@ -1254,10 +1273,13 @@ button:focus-visible, summary:focus-visible { outline:3px solid #759dbf; outline
           <button type="button" class="thumb-size-btn" data-size="large">大</button>
         </div>
         <div id="template-list" class="template-grid"></div>
-        <h3 class="home-tools-title">事業所と保存データ</h3>
+        <div class="resume-panel">
+          <div><h3>入力中の契約</h3><p>このタブで始めた契約の続きに戻ります。再読み込みすると消えるため、必要に応じてファイルに途中保存してください。</p><button id="btn-home-resume" class="tool-button-small" type="button" disabled>入力中の契約に戻る</button></div>
+          <div><h3>途中保存した契約</h3><p>保存した .keiyaku ファイルとパスワードを使い、最後に保存した時点から再開します。</p><button id="btn-draft-restore" class="tool-button-small" type="button">途中保存ファイルから再開</button></div>
+        </div>
+        <h3 class="home-tools-title">事業所・書式・保存した書類</h3>
         <div class="backup-actions">
           <button id="btn-operator-settings" class="tool-button-small" type="button">事業所・担当者を登録</button>
-          <button id="btn-draft-restore" class="tool-button-small" type="button">途中保存から再開</button>
           <button id="btn-open-verification" class="tool-button-small" type="button">保存した書類を照合</button>
           <button id="btn-export-templates" class="tool-button-small" type="button">テンプレートをバックアップ</button>
           <button id="btn-import-templates" class="tool-button-small" type="button">バックアップから復元・追加</button>
@@ -4114,7 +4136,7 @@ const VoidFlow = (() => {
     '改善しない場合は、ブラウザを再読み込みしてから別のPDFで再度お試しください。';
 
   // ===== ホーム画面 =====
-  const THUMB_SIZE_PRESETS = { small: 110, medium: 150, large: 200 };
+  const THUMB_SIZE_PRESETS = { small: 160, medium: 240, large: 320 };
   const THUMB_SIZE_STORAGE_KEY = 'preview_practical_20261002_keiyaku_thumb_size_v1';
 
   function applyThumbSize(size) {
@@ -4172,7 +4194,7 @@ const VoidFlow = (() => {
       const bytes = PdfUtils.base64ToArrayBuffer(full.pdfBase64);
       const pdfDoc = await PdfUtils.loadPdf(bytes);
       const canvas = document.createElement('canvas');
-      await PdfUtils.renderPageToCanvas(pdfDoc, 1, canvas, 0.15);
+      await PdfUtils.renderPageToCanvas(pdfDoc, 1, canvas, 0.35);
       const dataUrl = canvas.toDataURL('image/png');
       templateThumbCache.set(cacheKey, dataUrl);
       return dataUrl;
@@ -4365,7 +4387,7 @@ const VoidFlow = (() => {
       const mode = currentSigningTemplate.signingMode || 'legacy';
       const recipientAddressFields = currentSigningTemplate.pages.flatMap(page => page.fields).filter(field => field.type === 'recipient_address');
       const card = buildCard('署名前の確認（事業者用）', '<p>利用者氏名と、今回記入する方を確認してから端末をお渡しください。ご家族が代筆・代理署名する場合も利用者本人の情報は変わりません。</p>');
-      const saveHint = document.createElement('p'); saveHint.className = 'side-panel-hint'; saveHint.textContent = '再読み込みや端末の終了に備え、区切りのよい時点で上の「途中保存（暗号化）」からファイルを保存してください。最後に保存した時点から再開できます。'; card.append(saveHint);
+      const saveHint = document.createElement('p'); saveHint.className = 'side-panel-hint'; saveHint.textContent = '再読み込みや端末の終了に備え、区切りのよい時点で上の「途中保存（暗号化）」からファイルを保存してください。保存したファイルはホームの「途中保存ファイルから再開」で開けます。保存せず再読み込みすると入力は消えます。'; card.append(saveHint);
       const label = document.createElement('label');
       label.className = 'signing-field-label';
       label.textContent = '利用者名';
@@ -4614,7 +4636,7 @@ const VoidFlow = (() => {
     if (!restore && !hasPendingSigning()) { alert('途中保存する契約がありません。'); return; }
     const backdrop = document.createElement('div'); backdrop.className = 'modal-backdrop';
     const box = document.createElement('div'); box.className = 'signing-modal-box draft-dialog';
-    const title = document.createElement('h3'); title.textContent = restore ? '途中保存から再開' : '途中保存（暗号化）';
+    const title = document.createElement('h3'); title.textContent = restore ? '途中保存ファイルから再開' : '途中保存（暗号化）';
     const note = document.createElement('p');
     note.textContent = restore ? '保存したファイルとパスワードを指定します。自動保存ではなく、最後に手動保存した時点から再開します。'
       : '確定済みの署名と入力をパスワード付きファイルへ保存します。編集中の手書き署名は先に確定してください。パスワードを忘れると復元できません。';
@@ -5429,7 +5451,7 @@ const VoidFlow = (() => {
       '署名後の確認画面では、事業所名が事前入力され、担当者を一覧から選べます。「直接入力する」も選べます。'
     ], note:'登録はこのブラウザに保存されます。別の端末では登録が必要です。利用者の氏名・住所はここに登録しません。'},
     {title:'2. PDFからテンプレートを作る', steps:[
-      '「PDFから書式を作る」または「新しいテンプレートを作る」を押し、「PDFを選ぶ」で未記入の原本を選びます。',
+      '「＋ テンプレートを作る」または「新しいテンプレートを作る」を押し、「PDFを選ぶ」で未記入の原本を選びます。',
       '左の「手書き署名」を押してから、PDFの署名する場所をドラッグし、四角い枠を描きます。枠を選ぶと移動・サイズ調整・項目設定ができます。',
       '住所や日付など、書面に必要な項目を同じ方法で配置します。氏名・住所などがどの署名欄に対応するか、設定を確認してください。',
       '文字の枠を選び、文字サイズのバーまたは数値で調整します。枠内の「印字見本」は架空の例で、契約時には入力内容が入ります。見本は表示を切り替えられます。',
@@ -5469,9 +5491,9 @@ const VoidFlow = (() => {
       '記録を読むときは、ホームの「保存した書類を照合」で交付記録を選び、「交付記録を読む」を押します。PDFも選べば、記録との対応をハッシュで照合できます。'
     ], note:'交付記録は事業者が入力した記録です。実際の受領を認証するものではありません。PDFと監査記録のハッシュ一致も、本人性や契約の有効性を確認するものではありません。'},
     {title:'8. 中断・再開とテンプレートのバックアップ', steps:[
-      'ホームへ戻っただけなら「途中の契約を再開」で続けられます。再読み込みや端末の終了には備えられないため、区切りのよい時点で途中保存してください。',
+      'ホームへ戻っただけなら「入力中の契約に戻る」で続けられます。再読み込みや端末の終了には備えられないため、区切りのよい時点で途中保存してください。',
       '「途中保存（暗号化）」で12文字以上のパスワードを二回入力し、「暗号化して保存」を押します。続けて「途中保存ファイルを端末へ保存」を押し、実際に保存されたことを確認します。',
-      '再開はホームの「途中保存から再開」。保存ファイルとパスワードを指定します。最後に手動保存した時点から戻ります。未確定の手書き筆跡は保存されません。',
+      '再開はホームの「途中保存ファイルから再開」。保存ファイルとパスワードを指定します。最後に手動保存した時点から戻ります。未確定の手書き筆跡は保存されません。',
       '別の端末でも書式を使う場合は「テンプレートをバックアップ」で必要な書式を保存し、その端末で「バックアップから復元・追加」を押します。これは署名途中の契約ではなく、未記入の書式のバックアップです。'
     ], note:'途中保存は自動ではありません。パスワードを忘れると復元できず、最後の保存以降の作業も復元できません。契約のPDF・記録・途中保存ファイルは、事業所の保管方法に沿って管理してください。'}
   ];
@@ -5730,6 +5752,7 @@ const VoidFlow = (() => {
     });
     q('btn-settings-home').addEventListener('click', () => showScreen('home'));
     q('btn-nav-draft-save').addEventListener('click', () => openDraftDialog(false));
+    q('btn-home-resume').addEventListener('click', () => { if (!hasPendingSigning()) return; showScreen('signing'); renderSigningStep(); });
     q('btn-draft-restore').addEventListener('click', () => openDraftDialog(true));
     q('btn-nav-resume').addEventListener('click', () => { showScreen('signing'); renderSigningStep(); });
     q('btn-nav-home').addEventListener('click', () => { showScreen('home'); renderHomeTemplateList(); });
