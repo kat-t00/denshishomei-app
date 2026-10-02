@@ -1316,7 +1316,7 @@ html[data-theme="dark"] .signature-tools .signature-clear { color:#ffc2b8; }
 </style>
 </head>
 <body>
-<div style="padding:8px 20px;background:#203e54;color:#dae9f0;border-bottom:1px solid #547182;font-size:12px;text-align:center">実務フロー検証版・署名操作と案内を更新｜架空の情報でお試しください。</div>
+<div style="padding:8px 20px;background:#203e54;color:#dae9f0;border-bottom:1px solid #547182;font-size:12px;text-align:center">実務フロー検証版・記入者情報の引き継ぎを更新｜架空の情報でお試しください。</div>
   <header class="app-header">
     <div class="app-header-top">
       <h1>電子契約アプリ</h1>
@@ -2573,7 +2573,7 @@ const Forms = (() => {
     { type: 'recipient_address', label: '利用者住所欄', hint: '契約当事者である利用者本人の住所です。家族が署名・代筆しても変わりません。' },
     { type: 'name', label: '署名者氏名（活字）', hint: 'PDFに署名とは別の氏名欄がある時だけ配置。実際に署名した人の名前を印字します。' },
     { type: 'address', label: '署名者住所欄', hint: '実際に署名・代筆した人の住所が、活字で印字されます。' },
-    { type: 'relationship', label: '続柄欄', hint: 'ご家族が記入する場合、入力された続柄(例：長男)が印字されます。' },
+    { type: 'relationship', label: '続柄欄', hint: 'ご家族が記入する場合、入力された本人との関係・立場（例：長女、成年後見人）が印字されます。' },
     { type: 'declaration_checkbox', label: '確認チェック欄', hint: '署名時に確認した内容を示します。' },
   ];
 
@@ -4633,7 +4633,7 @@ const VoidFlow = (() => {
         const note = document.createElement('p'); note.className = 'side-panel-hint';
         const previous = SigningFlow.getSession().signers.at(-1);
         const action = previous.signingCapacity === 'representative' ? '代理署名' : '代筆';
-        note.textContent = '先ほど' + action + 'したご家族がご自身の欄にも署名する場合、氏名・住所・建物名・続柄を引き継げます。確認・修正し、署名とこの欄の同意は改めてお願いします。';
+        note.textContent = '先ほど' + action + 'したご家族がご自身の欄にも署名する場合、氏名・住所・建物名・本人との関係・立場を引き継げます。確認・修正し、署名とこの欄の同意は改めてお願いします。';
         card.appendChild(note);
         card.appendChild(bigButton('先ほど' + action + 'したご家族が続けて署名', () => continueWith(reusableScribe)));
         if (!(currentSigningTemplate.requireAdditionalForScribe && previous.signingCapacity === 'scribe' && SigningFlow.getSession().signingMode === 'optional')) {
@@ -5262,10 +5262,13 @@ const VoidFlow = (() => {
     relLabel.appendChild(relLabelText);
     const relInput = document.createElement('input');
     relInput.type = 'text';
-    relInput.placeholder = '例：長男';
+    relInput.placeholder = '例：長女、配偶者、成年後見人（長女）';
     relInput.value = signingUiState.draft.relationship || '';
     relLabel.appendChild(relInput);
     familySection.appendChild(relLabel);
+    const relationshipHint = document.createElement('p'); relationshipHint.className = 'side-panel-hint';
+    relationshipHint.textContent = '記入する方とご本人との関係・立場です。同じ方が次の欄にも署名する場合に引き継ぎます。PDFには、この署名欄に対応する続柄欄がある場合だけ印字します。';
+    familySection.appendChild(relationshipHint);
 
     const declRow = document.createElement('label');
     declRow.className = 'signing-checkbox-row';
@@ -5284,7 +5287,7 @@ const VoidFlow = (() => {
     authorityBasisInput.setAttribute('aria-label','代理権の根拠');
     authorityLabel.append(authorityBasisInput);
     const authorityHint = document.createElement('p'); authorityHint.className = 'side-panel-hint';
-    authorityHint.textContent = '「誰として」「何を確認して」代理署名するかを記録します。続柄だけでなく、確認した権限の根拠を書いてください。';
+    authorityHint.textContent = '「誰として」「何を確認して」代理署名するかを記録します。上の関係・立場とは別に、確認した権限の根拠を書いてください。';
     authorityLabel.append(authorityHint); familySection.append(authorityLabel);
     const scribeRow = document.createElement('label'); scribeRow.className = 'signing-checkbox-row';
     const scribeCheckbox = document.createElement('input'); scribeCheckbox.type = 'checkbox';
@@ -5310,9 +5313,10 @@ const VoidFlow = (() => {
       copyRecipientAddressBtn.style.display = addressFields.length && role !== 'recipient' && recipientAddress ? '' : 'none';
       if (copyRecipientAddressBtn.style.display === 'none') copyAddressHint.textContent = '';
       addressLabelText.textContent = addressFields.some(item => item.required) ? '記入者住所（PDF印字用・必須）' : '記入者住所（PDF印字用・任意）';
-      familySection.style.display = role === 'family' || relationshipFields.length ? '' : 'none';
-      relLabel.style.display = relationshipFields.length ? '' : 'none';
-      relLabelText.textContent = relationshipFields.some(item => item.required) ? 'ご本人との続柄（必須）' : 'ご本人との続柄（任意）';
+      familySection.style.display = role !== 'recipient' || relationshipFields.length ? '' : 'none';
+      relLabel.style.display = role !== 'recipient' || relationshipFields.length ? '' : 'none';
+      relationshipHint.style.display = relLabel.style.display;
+      relLabelText.textContent = relationshipFields.some(item => item.required) ? 'ご本人との関係・立場（必須）' : 'ご本人との関係・立場（任意）';
       capacityLabel.style.display = role === 'family' && !plannedCapacity ? '' : 'none';
       declRow.style.display = role === 'family' && selectedCapacity === 'representative' ? '' : 'none';
       authorityLabel.style.display = role === 'family' && selectedCapacity === 'representative' ? '' : 'none';
@@ -5412,7 +5416,7 @@ const VoidFlow = (() => {
       if (!modalPadInstance.isValid()) missing.push('手書き署名（点だけ・ごく小さい線では確定できません）');
       const linkedFields = findTemplateFieldsForRole(role, ['address','relationship'], field.id);
       if (linkedFields.some(item => item.type === 'address' && item.required) && !addressInput.value.trim()) missing.push('記入者の住所');
-      if (linkedFields.some(item => item.type === 'relationship' && item.required) && !relInput.value.trim()) missing.push('本人との続柄');
+      if (linkedFields.some(item => item.type === 'relationship' && item.required) && !relInput.value.trim()) missing.push('本人との関係・立場');
       if (role === 'family' && selectedCapacity === 'scribe' && !scribeCheckbox.checked) missing.push('本人の意思に基づく代筆の確認');
       if (role === 'family' && selectedCapacity === 'representative') {
         if (!declCheckbox.checked) missing.push('代理人として署名する権限の確認');
@@ -5590,6 +5594,7 @@ const VoidFlow = (() => {
     {title:'5. 本人自署・家族の代筆・代理署名', intro:'ホームで書式の「これで署名する」を押します。「署名前の確認（事業者用）」で、利用者本人の氏名と、今回記入する方を確認します。利用者住所欄がある書式では、本人の住所も入力します。', steps:[
       '本人が自署する場合：本人を選び、端末を渡します。書面を確認し、強調された署名欄を押して、本人がご自身の名前を書きます。署名枠の上の「1画戻す」で最後の一筆を取り消し、「全消去」でこの欄の筆跡をすべて消せます。',
       '本人の意思に基づく家族の代筆：家族と代筆を選びます。入力欄には実際に代筆する家族の名前、手書き欄には本人の名前を記入します。本人の意思に基づく記入であることを確認します。',
+      '代筆・代理署名では、記入する方の「ご本人との関係・立場」も入力できます。PDFに続柄欄がなくても記録し、同じ方が次の欄にも署名する場合に引き継ぎます。代理権の根拠とは別の情報です。',
       '代理人として署名する場合：家族と代理署名を選びます。入力欄・手書き欄には代理人自身の名前を記入し、代理権の確認と、その根拠を記録します。根拠欄には、確認した委任状や成年後見人としての立場などを具体的に書きます。',
       '住所は「住所」と任意の「建物名・部屋番号」に分けて入力します。PDFでは同じ住所枠にまとめて印字されます。本人と同じ住所の場合は、表示されるコピー操作を使えます。',
       '「この内容で確定する」が押せないときは、その直前の「確定するために必要な項目」を確認します。氏名・署名・必須の住所・確認事項・代理権の根拠など、不足項目が表示されます。',
