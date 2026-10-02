@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
-<title>実務フロー検証版｜電子契約アプリ</title>
+<title>電子契約アプリ（介護事業所向け）</title>
 <style>
 /* ポップで視認性の良いデザイン（丸ゴシック・パステル・角丸）。
    madori_app/genogram_web/shinsei_form_appと同じデザイン言語(配色トークン・角丸ボタン等)を
@@ -1127,10 +1127,34 @@ body.modal-open .signing-field-highlight {
   color: #6b7c93;
 }
 
+
+/* 現場で見つけやすく、iPadでも文字を入力しやすい欄。 */
+.signing-field-label textarea, .field-label textarea {
+  display:block; width:100%; box-sizing:border-box; min-height:90px;
+  padding:12px; font:inherit; font-size:18px; border:2px solid var(--color-border); border-radius:10px; background:#fff;
+}
+.signing-field-label input, .signing-field-label select { min-height:48px; font-size:18px; }
+.authority-required { display:block; padding:16px; border:2px solid #d39828; border-radius:12px; background:#fff9e9; }
+.signer-missing-reasons { padding:12px; border-radius:10px; background:#fff3db; color:#6b4100; font-size:16px; }
+.signer-missing-reasons.is-ready { background:#e5f5e9; color:#185b2b; }
+.declarations-section { border-top:1px solid var(--color-border); margin-top:16px; }
+.declarations-section h4 { margin-bottom:8px; }
+input[type="range"] { width:100%; min-height:44px; accent-color:var(--color-primary); }
+.draft-dialog { max-width:650px; }
+
+/* 非表示の入力・ボタンを、各部品のdisplay指定で再表示しない。 */
+[hidden] { display:none !important; }
+
+.signing-field-label input:not([type="checkbox"]), .signing-field-label select {
+  display:block; width:100%; margin-top:8px; padding:12px 14px;
+  border:2px solid var(--color-border); border-radius:12px;
+  box-sizing:border-box; font-family:inherit; background:#fdfdff;
+}
+
 </style>
 </head>
 <body>
-<div style="padding:12px;background:#fff2cc;color:#513c00;text-align:center;font-weight:bold">実務フロー検証版 2026/10/2｜公開版と保存領域は別です<br><small>架空の氏名・住所で、代筆・家族署名・完成書面の確認・控えの交付をお試しください。</small></div>
+<div style="padding:12px;background:#fff2cc;color:#513c00;text-align:center;font-weight:bold">実務フロー検証版 2026/10/2・入力改善版｜公開版と保存領域は別です<br><small>架空の情報で、住所・担当者選択・暗号化途中保存と再開をお試しください。</small></div>
   <header class="app-header">
     <div class="app-header-top">
       <h1>📝 電子契約アプリ</h1>
@@ -1145,6 +1169,7 @@ body.modal-open .signing-field-highlight {
       <button id="btn-nav-void" class="tool-button" type="button">🗂 契約書の訂正・再署名</button>
       <button id="btn-nav-help" class="tool-button" type="button">❓ 使い方</button>
       <button id="btn-nav-resume" class="tool-button hidden" type="button">途中の契約を再開</button>
+      <button id="btn-nav-draft-save" class="tool-button hidden" type="button">途中保存（暗号化）</button>
       <button id="btn-nav-last-export" class="tool-button hidden" type="button">直前の署名書類</button>
     </nav>
   </header>
@@ -1164,6 +1189,8 @@ body.modal-open .signing-field-highlight {
         </div>
         <div id="template-list" class="template-grid"></div>
         <div class="backup-actions">
+          <button id="btn-operator-settings" class="tool-button-small" type="button">事業所・担当者を登録</button>
+          <button id="btn-draft-restore" class="tool-button-small" type="button">途中保存から再開</button>
           <button id="btn-open-verification" class="tool-button-small" type="button">保存した書類を照合</button>
           <button id="btn-export-templates" class="tool-button-small" type="button">⬇ テンプレートをバックアップ</button>
           <button id="btn-import-templates" class="tool-button-small" type="button">⬆ バックアップから復元・追加</button>
@@ -1185,6 +1212,8 @@ body.modal-open .signing-field-highlight {
           <h2>📄 PDFを選ぶ</h2><p class="side-panel-hint">未記入の原本PDFを使ってください。PDF全体が端末とバックアップに保存されます。</p>
           <input type="file" id="pdf-file-input" accept="application/pdf" />
           <h2>✍️ 項目を配置</h2>
+          <p class="side-panel-hint">枠内の氏名・住所・続柄は架空の「印字見本」です。実際の契約には入力した内容が印字されます。</p>
+          <label class="checkbox-row"><input type="checkbox" id="toggle-print-preview" checked />印字見本を表示</label>
           <p class="side-panel-hint">ボタンを押してから、PDF上をドラッグして四角を描くと項目が追加されます。</p>
           <p class="side-panel-hint">まず「手書き署名」を配置。PDFに署名とは別の氏名欄がある場合だけ、氏名（活字）を追加します。署名が氏名欄を兼ねる書式なら追加不要です。</p>
           <div id="field-palette" class="fixture-palette"></div>
@@ -1271,9 +1300,20 @@ body.modal-open .signing-field-highlight {
           <button id="btn-verification-home" class="tool-button" type="button">ホームに戻る</button>
         </div>
         <div id="verification-result" class="verification-result" role="status" aria-live="polite"></div>
+        <h3>交付記録を読む</h3><p class="side-panel-hint">交付JSONを選ぶと相手・方法・結果を読めます。上でPDFも選ぶと、そのPDFとの対応を照合できます。</p>
+        <label class="field-label">交付記録JSON<input type="file" id="verify-delivery-input" accept=".json,application/json" /></label>
+        <button id="btn-read-delivery" class="tool-button" type="button">交付記録を読む</button>
+        <div id="delivery-record-result" class="verification-result" role="status" aria-live="polite"></div>
       </div>
     </section>
 
+    <section id="screen-settings" class="app-screen"><div class="screen-inner">
+      <h2>事業所・担当者の登録</h2><p class="screen-hint">この端末で使う事業所名と担当者の候補を登録します。契約時は担当者を選択できます。利用者の情報はここには保存しません。</p>
+      <label class="field-label">登録する事業所名<input id="settings-provider" maxlength="200" /></label>
+      <label class="field-label">担当者名（1行に1人）<textarea id="settings-staff" rows="6" placeholder="担当者A&#10;担当者B"></textarea></label>
+      <button id="btn-settings-save" class="tool-button tool-button-primary" type="button">登録を保存</button>
+      <button id="btn-settings-home" class="tool-button" type="button">ホームに戻る</button>
+    </div></section>
     <!-- 無効化・再契約画面 -->
     <section id="screen-void" class="app-screen">
       <div class="screen-inner">
@@ -1411,7 +1451,7 @@ const Models = (() => {
       signOrder: 1,
       required: true,
       label: '',
-      fontSize: 11, // 氏名欄・住所欄・続柄欄・日付欄・確認チェック欄のPDF印字時の文字サイズ(pt)
+      fontSize: 14, // 新しく配置する活字欄の基準。既存書式は保存済みのサイズを維持する。
       signatureScale: 100, // 署名欄のみ使用。枠に収めた(object-fit:contain)後にさらに掛ける表示サイズ(%)
     }, overrides);
     // 続柄欄だけは例外: 「本人から見た続柄」は本人が自分に対して書く概念が存在しないため、
@@ -1454,6 +1494,7 @@ const Models = (() => {
       typedName: '',
       relationship: null,
       address: null,
+      building: '',
       signingCapacity: 'self', // 'self' | 'scribe' | 'representative' | 'additional'
       recipientConsentConfirmed: false,
       authorityBasis: null,
@@ -1488,6 +1529,7 @@ const Models = (() => {
       status: 'in_progress', // 'in_progress' | 'completed' | 'void'
       recipientName: '',
       recipientAddress: '',
+      recipientBuilding: '',
       signers: [],
       eventLog: [],
       completedAt: null,
@@ -1553,9 +1595,14 @@ const Models = (() => {
         (role === 'additional' && field.assignedRole === 'family')));
   }
 
+  function fullAddress(address, building) {
+    return [address,building].map(value => String(value || '').trim()).filter(Boolean).join('\n');
+  }
+
   return {
     validateTemplate,
     getSignerFields,
+    fullAddress,
     makeId,
     FIELD_TYPES,
     SIGNER_ROLES,
@@ -1973,6 +2020,9 @@ const FieldEditor = (() => {
   let onFieldSelected = null; // (field) => void
   let onPagesChanged = null; // () => void  (フィールドの追加・移動・削除の度に呼ぶ)
 
+  let showPrintPreview = true;
+  function setPrintPreviewVisible(visible) { showPrintPreview = visible; renderFieldBoxes(); }
+
   function init(opts) {
     canvasEl = opts.canvasEl;
     overlayEl = opts.overlayEl;
@@ -2063,8 +2113,8 @@ const FieldEditor = (() => {
 
   const PRINT_PREVIEW_TEXT = {
     name: '山田 太郎', recipient_name: '山田 太郎',
-    recipient_address: '東京都千代田区丸の内一丁目2番3号',
-    address: '東京都千代田区丸の内一丁目2番3号',
+    recipient_address: '東京都千代田区丸の内一丁目2番3号\n見本マンション101号室',
+    address: '東京都千代田区丸の内一丁目2番3号\n見本マンション101号室',
     relationship: '長女', date: '2026年9月23日', declaration_checkbox: '✓ 確認済み',
   };
 
@@ -2120,9 +2170,10 @@ const FieldEditor = (() => {
         (groupText ? '（' + groupText + '）' : '');
       box.appendChild(labelSpan);
 
-      if (!isSignature) {
+      if (!isSignature && showPrintPreview) {
         const printPreview = document.createElement('span');
         printPreview.className = 'field-box-print-preview';
+        labelSpan.textContent += '｜印字見本';
         printPreview.textContent = PRINT_PREVIEW_TEXT[field.type] || '印字見本';
         printPreview.style.fontSize = Math.max(8, (field.fontSize || 11) * zoom.getScale()) + 'px';
         if (field.type === 'address' || field.type === 'recipient_address') printPreview.classList.add('is-multiline');
@@ -2334,7 +2385,7 @@ const FieldEditor = (() => {
     init, loadPdfBytes, loadFromTemplate,
     zoomIn, zoomOut, fitToView, goToPage,
     getPageCount, getCurrentPageIndex, getPages, getSignatureFields,
-    setArmedFieldType, attachDrawHandlers, renderFieldBoxes, removeField,
+    setArmedFieldType, attachDrawHandlers, renderFieldBoxes, removeField, setPrintPreviewVisible,
   };
 })();
 
@@ -2520,15 +2571,22 @@ const Forms = (() => {
       fontSizeInput.min = '6';
       fontSizeInput.max = '36';
       fontSizeInput.value = field.fontSize || 11;
-      fontSizeInput.addEventListener('input', () => {
-        field.fontSize = parseInt(fontSizeInput.value, 10) || 11;
-        callbacks.onChange();
-      });
+      function setSize(value) {
+        const size = Number(value);
+        if (!Number.isFinite(size) || size < 6 || size > 36) return;
+        field.fontSize = size; fontSizeInput.value = size; slider.value = size; callbacks.onChange();
+      }
+      fontSizeInput.step = '0.5';
+      fontSizeInput.addEventListener('input', () => setSize(fontSizeInput.value));
       fontSizeLabel.appendChild(fontSizeInput);
       container.appendChild(fontSizeLabel);
+      const slider = document.createElement('input'); slider.type = 'range';
+      slider.min = '6'; slider.max = '36'; slider.step = '0.5'; slider.value = fontSizeInput.value;
+      slider.setAttribute('aria-label','文字サイズを調整');
+      slider.addEventListener('input', () => setSize(slider.value)); container.append(slider);
       const hint = document.createElement('p');
       hint.className = 'side-panel-hint';
-      hint.textContent = field.type === 'address'
+      hint.textContent = ['address','recipient_address'].includes(field.type)
         ? '住所は枠の高さに合わせて折り返します。6ptでも収まらない場合は出力を止めます。試し印字でご確認ください。'
         : 'PDF出力に近い印字見本が枠内に表示されます。日本語フォントや実際の文字量は「試し印字」で最終確認してください。';
       container.appendChild(hint);
@@ -2676,7 +2734,7 @@ const Forms = (() => {
 // 署名成立にならないよう、最小ストローク量のチェックを持つ。
 const SignaturePad = (() => {
   const MIN_PATH_LENGTH = 40; // px。これ未満なら「署名として小さすぎる」扱い
-  const MIN_BOUNDS_SIZE = 15; // px。幅・高さともこれ未満なら不十分とみなす
+  const MIN_BOUNDS_SIZE = 15; // px。幅または高さで、ごく小さい筆跡を除く
 
   function create(canvasEl, onStrokeChange, onInterrupted) {
     const ctx = canvasEl.getContext('2d');
@@ -2799,7 +2857,7 @@ const SignaturePad = (() => {
       if (!hasStroke) return false;
       const width = maxX - minX;
       const height = maxY - minY;
-      return pathLength >= MIN_PATH_LENGTH && width >= MIN_BOUNDS_SIZE && height >= MIN_BOUNDS_SIZE;
+      return pathLength >= MIN_PATH_LENGTH && Math.max(width, height) >= MIN_BOUNDS_SIZE;
     }
 
     function clear() {
@@ -2891,6 +2949,74 @@ const AudioRecorder = (() => {
 
 </script>
   <script>
+// 事業所と職員の候補だけを、登録操作時に端末へ保存する。
+const OperatorSettings = (() => {
+  const KEY = 'preview_practical_20261002_keiyaku_operator_settings_v1';
+  function clean(value) {
+    return {providerName: String(value.providerName || '').trim().slice(0,200),
+      staffNames: [...new Set((Array.isArray(value.staffNames) ? value.staffNames : [])
+        .filter(name => typeof name === 'string').map(name => name.trim().slice(0,100)).filter(Boolean))].slice(0,100)};
+  }
+  function load() {
+    try { return clean(JSON.parse(localStorage.getItem(KEY) || '{}')); }
+    catch (_) { return clean({}); }
+  }
+  function save(value) {
+    const settings = clean(value);
+    try { localStorage.setItem(KEY,JSON.stringify(settings)); }
+    catch (_) { throw new Error('事業所・担当者を保存できませんでした。ブラウザの保存設定をご確認ください。'); }
+    return settings;
+  }
+  return {load,save};
+})();
+
+</script>
+  <script>
+// 途中の契約を、利用者の明示操作だけで暗号化ファイルに保存する。
+const DraftVault = (() => {
+  const FORMAT = 'keiyaku-encrypted-draft';
+  const ITERATIONS = 250000;
+  const MAX_BYTES = 40 * 1024 * 1024;
+  function toBase64(bytes) {
+    let text = '';
+    for (let i = 0; i < bytes.length; i += 8192) text += String.fromCharCode(...bytes.subarray(i,i+8192));
+    return btoa(text);
+  }
+  function fromBase64(text) {
+    if (typeof text !== 'string' || !/^[A-Za-z0-9+/]*={0,2}$/.test(text)) throw new Error('途中保存ファイルの形式が正しくありません。');
+    const raw = atob(text); return Uint8Array.from(raw, char => char.charCodeAt(0));
+  }
+  async function keyFor(password, salt) {
+    if (!crypto.subtle) throw new Error('暗号化に対応したブラウザでHTTPSのアプリを開いてください。');
+    if (typeof password !== 'string' || password.length < 12) throw new Error('途中保存用のパスワードは12文字以上にしてください。');
+    const material = await crypto.subtle.importKey('raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveKey']);
+    return crypto.subtle.deriveKey({name:'PBKDF2',hash:'SHA-256',salt,iterations:ITERATIONS},material,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+  }
+  async function encrypt(state, password) {
+    const bytes = new TextEncoder().encode(JSON.stringify(state));
+    if (bytes.length > MAX_BYTES) throw new Error('途中保存の容量が40MBを超えています。録音を別途保管するか、PDFを軽量化してください。');
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const key = await keyFor(password,salt);
+    const encrypted = await crypto.subtle.encrypt({name:'AES-GCM',iv},key,bytes);
+    return JSON.stringify({format:FORMAT,version:1,algorithm:'AES-GCM',kdf:'PBKDF2-SHA256',iterations:ITERATIONS,
+      salt:toBase64(salt),iv:toBase64(iv),ciphertext:toBase64(new Uint8Array(encrypted))});
+  }
+  async function decrypt(text,password) {
+    if (typeof text !== 'string' || text.length > MAX_BYTES*1.4) throw new Error('途中保存ファイルの容量が対応範囲を超えています。');
+    let file; try { file = JSON.parse(text); } catch (_) { throw new Error('途中保存ファイルを読み取れません。'); }
+    if (!file || file.format !== FORMAT || file.version !== 1 || file.algorithm !== 'AES-GCM' || file.kdf !== 'PBKDF2-SHA256' || file.iterations !== ITERATIONS) throw new Error('未対応の途中保存ファイルです。');
+    const salt = fromBase64(file.salt), iv = fromBase64(file.iv), bytes = fromBase64(file.ciphertext);
+    if (salt.length !== 16 || iv.length !== 12 || bytes.length < 16) throw new Error('途中保存ファイルが破損しています。');
+    const key = await keyFor(password,salt);
+    try { return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv},key,bytes))); }
+    catch (_) { throw new Error('パスワードが違うか、途中保存ファイルが破損・変更されています。'); }
+  }
+  return {encrypt,decrypt,toBase64,fromBase64};
+})();
+
+</script>
+  <script>
 // 同一端末で複数人が順番に署名する時の状態管理(状態機械)。
 // SigningSessionはメモリ内だけで保持し、localStorageには一切保存しない
 // (個人情報を含むデータを自動保存しない、というhouse styleの方針のため)。
@@ -2928,6 +3054,7 @@ const SigningFlow = (() => {
       templateVersionLabel: template.versionLabel,
       recipientName: recipientName || '',
       recipientAddress: plan && plan.recipientAddress || '',
+      recipientBuilding: plan && plan.recipientBuilding || '',
       resignOf: resignOf || null,
       signingMode: mode,
       signingPlan: plan ? Object.assign({ primaryCapacity: plan.primaryRole === 'family' ? 'representative' : 'self' }, plan) : null,
@@ -2959,8 +3086,8 @@ const SigningFlow = (() => {
   function getReusableScribeDetails() {
     if (!session || isQueueComplete() || getPlannedRole() !== 'additional') return null;
     const previous = session.signers[session.signers.length - 1];
-    if (!previous || previous.role !== 'family' || previous.signingCapacity !== 'scribe') return null;
-    return { typedName: previous.typedName, address: previous.address || '', relationship: previous.relationship || '' };
+    if (!previous || previous.role !== 'family' || !['scribe','representative'].includes(previous.signingCapacity)) return null;
+    return { typedName: previous.typedName, address: previous.address || '', building: previous.building || '', relationship: previous.relationship || '' };
   }
   function getPlannedRole() {
     if (!session || session.signingMode === 'legacy') return null;
@@ -3022,6 +3149,8 @@ const SigningFlow = (() => {
         if (session.signingPlan) session.signingPlan.recipientAddress = confirmedAddress;
         logEvent('recipient_address_updated', { reason: 'recipient_confirmed' });
       }
+      session.recipientBuilding = String(input.building || '').trim();
+      if (session.signingPlan) session.signingPlan.recipientBuilding = session.recipientBuilding;
     }
 
     const signer = Models.createSigner({
@@ -3031,6 +3160,7 @@ const SigningFlow = (() => {
       typedName: input.typedName.trim(),
       relationship: input.relationship || null,
       address: input.address || null,
+      building: String(input.building || '').trim(),
       signingCapacity,
       recipientConsentConfirmed: !!input.recipientConsentConfirmed,
       authorityBasis: input.authorityBasis ? input.authorityBasis.trim() : null,
@@ -3080,9 +3210,36 @@ const SigningFlow = (() => {
     logEvent('session_completed');
   }
 
+  function exportState() {
+    if (!session) return null;
+    return JSON.parse(JSON.stringify({session,template:currentTemplate,queueIds:queue.map(field => field.id),queueIndex,seqCounter}));
+  }
+
+  function validateState(state) {
+    if (!state || !state.session || !state.template || !Array.isArray(state.queueIds) || !Array.isArray(state.session.signers) || !Array.isArray(state.session.eventLog)) throw new Error('途中の契約データの形式が正しくありません。');
+    const errors = Models.validateTemplate(state.template);
+    if (errors.length) throw new Error('途中の書式を復元できません。\n' + errors.join('\n'));
+    const fields = state.template.pages.flatMap(page => page.fields).filter(field => field.type === 'signature').sort((a,b) => a.signOrder-b.signOrder);
+    const expected = state.session.signingMode === 'optional' && !state.session.signingPlan?.includeAdditional ? fields.slice(0,1) : fields;
+    if (!fields.length || state.session.signingMode !== (state.template.signingMode || 'legacy') || state.session.templateId !== state.template.id || !Number.isInteger(state.queueIndex) || state.queueIndex < 0 || state.queueIndex > expected.length ||
+        state.queueIds.join('|') !== expected.map(field=>field.id).join('|') || !Number.isInteger(state.seqCounter) || state.seqCounter < 0 ||
+        state.session.signers.some(signer => !signer || !state.queueIds.slice(0,state.queueIndex).includes(signer.fieldId) || typeof signer.typedName !== 'string' || !signer.typedName.trim() || typeof signer.signatureImageDataUrl !== 'string' || !signer.signatureImageDataUrl.startsWith('data:image/png;base64,'))) throw new Error('途中の契約の署名工程が正しくありません。');
+    if (new Set(state.session.signers.map(signer=>signer.fieldId)).size !== state.session.signers.length) throw new Error('途中の署名が重複しています。');
+    return expected;
+  }
+
+  function restoreState(input) {
+    const state = JSON.parse(JSON.stringify(input));
+    const fields = validateState(state);
+    session = state.session; currentTemplate = state.template; queue = fields;
+    queueIndex = state.queueIndex; seqCounter = state.seqCounter;
+    logEvent('session_resumed', {reason:'encrypted_draft'});
+    return session;
+  }
+
   return {
     startSession, getSession, isQueueComplete, getCurrentField, getProgress, getReusableScribeDetails, getPlannedRole, getPlannedCapacity,
-    submitCurrentSigner, skipCurrentField, redoLastSigner, redoSignerFrom, completeSession,
+    submitCurrentSigner, skipCurrentField, redoLastSigner, redoSignerFrom, completeSession, exportState, validateState, restoreState,
   };
 })();
 
@@ -3204,14 +3361,14 @@ const PdfWriter = (() => {
     if (session.deliveryPlan) lines.push('控えの交付予定: ' + (session.deliveryPlan.method === 'electronic' ? '電子（受取人の承諾確認済み）' : '紙') + ' / 実施結果は別の交付記録に記載');
     lines.push('■ 署名者一覧');
     if (session.recipientName) lines.push('利用者氏名: ' + session.recipientName);
-    if (session.recipientAddress) lines.push('利用者住所: ' + session.recipientAddress);
+    if (session.recipientAddress) lines.push('利用者住所: ' + Models.fullAddress(session.recipientAddress,session.recipientBuilding).replace(/\n/g,' '));
     if ((session.eventLog || []).some(event => event.reason === 'additional_not_required')) {
       lines.push('追加署名: 署名前の確認で今回は不要と選択');
     }
     session.signers.forEach((s, i) => {
       lines.push((i + 1) + '. 実際に記入した人: ' + (ROLE_LABELS[s.role] || s.role) + '　氏名: ' + s.typedName +
         '　記入方法: ' + (CAPACITY_LABELS[s.signingCapacity] || (s.role === 'family' ? '代理人署名（従来の記録）' : CAPACITY_LABELS[s.role] || s.role)) +
-        (s.address ? '　住所: ' + s.address : '') +
+        (s.address ? '　住所: ' + Models.fullAddress(s.address,s.building).replace(/\n/g,' ') : '') +
         (s.relationship ? '　続柄: ' + s.relationship : '') +
         (s.signingCapacity === 'representative' || (s.role === 'family' && !s.signingCapacity) ? '　代理権確認: ' + (s.declarationChecked ? '済' : '未') + (s.authorityBasis ? '（根拠: ' + s.authorityBasis + '）' : '') : '') +
         (s.signingCapacity === 'scribe' ? '　本人の意思確認: ' + (s.recipientConsentConfirmed ? '済' : '未') : '') +
@@ -3311,7 +3468,7 @@ const PdfWriter = (() => {
 
     template.pages.forEach((page, index) => page.fields.forEach(field => {
       if (field.type === 'recipient_name') drawFieldText(pdfPages[index], font, field, session.recipientName);
-      else if (field.type === 'recipient_address') drawFieldText(pdfPages[index], font, field, session.recipientAddress);
+      else if (field.type === 'recipient_address') drawFieldText(pdfPages[index], font, field, Models.fullAddress(session.recipientAddress,session.recipientBuilding));
     }));
     for (const signer of session.signers) {
       const field = findField(template.pages, signer.fieldId);
@@ -3326,7 +3483,7 @@ const PdfWriter = (() => {
         const textPdfPage = pdfPages[textPageIndex];
         if (textField.type === 'name') drawFieldText(textPdfPage, font, textField, signer.typedName);
         else if (textField.type === 'relationship') drawFieldText(textPdfPage, font, textField, signer.relationship || '');
-        else if (textField.type === 'address') drawFieldText(textPdfPage, font, textField, signer.address || '');
+        else if (textField.type === 'address') drawFieldText(textPdfPage, font, textField, Models.fullAddress(signer.address,signer.building));
         else if (textField.type === 'date') drawFieldText(textPdfPage, font, textField, formatDate(new Date(signer.signedAt), textField.dateFormat));
         else if (textField.type === 'declaration_checkbox' && (options && options.preview || (signer.confirmedDeclarationIds || []).includes(textField.id) || (!signer.confirmedDeclarationIds && (signer.confirmedDeclarations || []).includes(textField.label)))) drawFieldText(textPdfPage, font, textField, '✓ 確認済み');
       });
@@ -3441,7 +3598,19 @@ const Audit = (() => {
     };
   }
 
-  return { buildAuditRecord, verifyFiles };
+  function parseDeliveryRecord(text) {
+    let record; try { record = JSON.parse(text); } catch (_) { throw new Error('交付記録JSONを読み取れません。'); }
+    if (!record || record.format !== 'keiyaku-delivery' || record.schemaVersion !== 1 ||
+        !HASH_PATTERN.test(record.finalPdfHashSha256 || '') || !['paper','electronic'].includes(record.method) ||
+        !['pending','delivered'].includes(record.status) || typeof record.verificationId !== 'string' ||
+        typeof record.recipient !== 'string' || typeof record.detail !== 'string' ||
+        typeof record.recordedAt !== 'string' || Number.isNaN(Date.parse(record.recordedAt)) ||
+        !record.operator || typeof record.operator.providerName !== 'string' || typeof record.operator.staffName !== 'string') throw new Error('交付記録の形式が正しくありません。監査記録とは別のファイルです。');
+    return { ...selectFields(record,['verificationId','finalPdfHashSha256','recordedAt','method','recipient','status','detail']),
+      electronicConsent:record.electronicConsent === true,operator:selectFields(record.operator,['providerName','staffName']) };
+  }
+
+  return { buildAuditRecord, verifyFiles, parseDeliveryRecord };
 })();
 
 </script>
@@ -3451,17 +3620,20 @@ const VerificationView = (() => {
   let inputs, result, button;
   let revision = 0;
   let busy = false;
+  let deliveryInput, deliveryResult;
 
   function invalidate() {
     revision += 1;
     result.replaceChildren();
     result.removeAttribute('data-status');
+    if (deliveryResult) deliveryResult.replaceChildren();
   }
 
   function reset() {
     if (!inputs) return;
     invalidate();
     inputs.forEach(input => { input.value = ''; });
+    if (deliveryInput) deliveryInput.value = '';
   }
 
   function line(parent, text, className) {
@@ -3542,10 +3714,40 @@ const VerificationView = (() => {
     }
   }
 
+  async function readDelivery() {
+    deliveryResult.replaceChildren(); const requestRevision = ++revision;
+    const button = document.getElementById('btn-read-delivery'); button.disabled = true;
+    try {
+      const file = deliveryInput.files[0]; validateSize(file,'交付記録JSON',2);
+      const record = Audit.parseDeliveryRecord(await file.text());
+      const pdf = inputs[0].files[0];
+      let pdfResult = 'PDFとの対応：未照合（上でPDFを選択してください）';
+      if (pdf) {
+        validateSize(pdf,'署名済みPDF',50);
+        const hash = await HashUtils.sha256Hex(await pdf.arrayBuffer());
+        pdfResult = hash === record.finalPdfHashSha256.toLowerCase() ? 'PDFとの対応：ハッシュが一致しました' : 'PDFとの対応：ハッシュが一致しません';
+      }
+      if (requestRevision !== revision) return;
+      line(deliveryResult,pdfResult,'verification-outcome');
+      line(deliveryResult,'交付結果：' + (record.status === 'delivered' ? '控えを渡した' : 'まだ渡していない'));
+      line(deliveryResult,'相手：' + (record.recipient || '未記入'));
+      line(deliveryResult,'方法：' + (record.method === 'paper' ? '紙' : '電子ファイル'));
+      line(deliveryResult,'詳細：' + (record.detail || '未記入'));
+      line(deliveryResult,'記録日時（端末時計）：' + new Date(record.recordedAt).toLocaleString('ja-JP'));
+      line(deliveryResult,'事業所・記録担当者：' + record.operator.providerName + ' / ' + record.operator.staffName);
+      line(deliveryResult,'検証ID：' + record.verificationId);
+      line(deliveryResult,'これは事業者が入力した交付記録です。実際の受領や内容の真正性を認証するものではありません。');
+    } catch(e) { if (requestRevision === revision) line(deliveryResult,'交付記録を表示できませんでした。' + e.message); }
+    finally { button.disabled = false; }
+  }
+
   function init() {
     inputs = ['verify-pdf-input', 'verify-audit-input', 'verify-audio-input'].map(id => document.getElementById(id));
     result = document.getElementById('verification-result');
     button = document.getElementById('btn-verify-files');
+    deliveryInput = document.getElementById('verify-delivery-input'); deliveryResult = document.getElementById('delivery-record-result');
+    deliveryInput.addEventListener('change',invalidate);
+    document.getElementById('btn-read-delivery').addEventListener('click',readDelivery);
     inputs.forEach(input => input.addEventListener('change', invalidate));
     button.addEventListener('click', verify);
     document.getElementById('btn-clear-verification').addEventListener('click', reset);
@@ -3993,6 +4195,7 @@ const VoidFlow = (() => {
     }
     completedExport = null;
     q('btn-nav-resume').classList.remove('hidden');
+    q('btn-nav-draft-save').classList.remove('hidden');
     q('btn-nav-last-export').classList.add('hidden');
     currentSigningTemplate = template;
     signingUiState = { phase: 'recipient_name', draft: {}, resignOf: resignOf || null };
@@ -4159,6 +4362,7 @@ const VoidFlow = (() => {
       const mode = currentSigningTemplate.signingMode || 'legacy';
       const recipientAddressFields = currentSigningTemplate.pages.flatMap(page => page.fields).filter(field => field.type === 'recipient_address');
       const card = buildCard('👤 署名前の確認（事業者用）', '<p>利用者氏名と、今回記入する方を確認してから端末をお渡しください。ご家族が代筆・代理署名する場合も利用者本人の情報は変わりません。</p>');
+      const saveHint = document.createElement('p'); saveHint.className = 'side-panel-hint'; saveHint.textContent = '再読み込みや端末の終了に備え、区切りのよい時点で上の「途中保存（暗号化）」からファイルを保存してください。最後に保存した時点から再開できます。'; card.append(saveHint);
       const label = document.createElement('label');
       label.className = 'signing-field-label';
       label.textContent = '利用者名';
@@ -4172,6 +4376,7 @@ const VoidFlow = (() => {
       card.appendChild(label);
       let recipientAddressInput = null;
       let recipientAddressHint = null;
+      let recipientBuildingInput = null;
       if (recipientAddressFields.length) {
         const addressLabel = document.createElement('label'); addressLabel.className = 'signing-field-label';
         addressLabel.textContent = recipientAddressFields.some(field => field.required) ? '利用者住所（PDF印字用・必須）' : '利用者住所（PDF印字用・任意）';
@@ -4180,6 +4385,13 @@ const VoidFlow = (() => {
         recipientAddressInput.value = signingUiState.draft.recipientAddress || '';
         recipientAddressInput.addEventListener('input', () => { signingUiState.draft.recipientAddress = recipientAddressInput.value; });
         addressLabel.appendChild(recipientAddressInput); card.appendChild(addressLabel);
+        const buildingLabel = document.createElement('label'); buildingLabel.className = 'signing-field-label';
+        buildingLabel.textContent = '利用者の建物名・部屋番号（任意）';
+        recipientBuildingInput = document.createElement('input'); recipientBuildingInput.id = 'signing-recipient-building';
+        recipientBuildingInput.placeholder = '例：ケアマンションA棟101号室';
+        recipientBuildingInput.value = signingUiState.draft.recipientBuilding || '';
+        recipientBuildingInput.addEventListener('input', () => { signingUiState.draft.recipientBuilding = recipientBuildingInput.value; });
+        buildingLabel.append(recipientBuildingInput); card.append(buildingLabel);
         recipientAddressHint = document.createElement('p'); recipientAddressHint.className = 'side-panel-hint';
         recipientAddressHint.textContent = '本人の住所として印字します。本人自署では引き継ぎ、家族が同じ住所なら署名時にコピーできます。';
         card.appendChild(recipientAddressHint);
@@ -4243,7 +4455,7 @@ const VoidFlow = (() => {
         note.textContent = 'この画面は事業者側が事前確認します。アプリが契約能力や代理権を判定するものではありません。'; card.append(note);
       }
       const nextBtn = bigButton('次へ進む', () => {
-        const plan = { recipientAddress: recipientAddressInput ? recipientAddressInput.value.trim() : '', primaryRole: roleSelect.value,
+        const plan = { recipientAddress: recipientAddressInput ? recipientAddressInput.value.trim() : '', recipientBuilding: recipientBuildingInput ? recipientBuildingInput.value.trim() : '', primaryRole: roleSelect.value,
           primaryCapacity: mode !== 'legacy' && roleSelect.value === 'family' ? q('signing-family-capacity').value : undefined,
           includeAdditional: mode === 'all' || (mode === 'optional' && currentSigningTemplate.requireAdditionalForScribe &&
             roleSelect.value === 'family' && q('signing-family-capacity').value === 'scribe') ? true
@@ -4273,17 +4485,20 @@ const VoidFlow = (() => {
         '<p>次に署名される方に端末をお渡しし、内容をご確認いただいた上で「続ける」を押してください。</p>');
       const continueWith = draft => {
         signingUiState.phase = 'document';
-        signingUiState.draft = Object.assign({ typedName: '', address: '', relationship: '', declarationChecked: false }, draft);
+        signingUiState.draft = Object.assign({ typedName: '', address: '', building: '', relationship: '', declarationChecked: false }, signingUiState.restoredDraft ? signingUiState.draft : {}, draft);
+        signingUiState.restoredDraft = false;
         if (signingUiState.docView) signingUiState.docView.pageIndex = null;
         renderSigningStep();
       };
       const reusableScribe = SigningFlow.getReusableScribeDetails();
       if (reusableScribe) {
         const note = document.createElement('p'); note.className = 'side-panel-hint';
-        note.textContent = '先ほど代筆したご家族がご自身の欄にも署名する場合、入力済みの氏名・住所・続柄を引き継げます。内容を確認・修正し、署名は新しく書いてください。';
+        const previous = SigningFlow.getSession().signers.at(-1);
+        const action = previous.signingCapacity === 'representative' ? '代理署名' : '代筆';
+        note.textContent = '先ほど' + action + 'したご家族がご自身の欄にも署名する場合、氏名・住所・建物名・続柄を引き継げます。確認・修正し、署名とこの欄の同意は改めてお願いします。';
         card.appendChild(note);
-        card.appendChild(bigButton('先ほど代筆したご家族が続けて署名', () => continueWith(reusableScribe)));
-        if (!currentSigningTemplate.requireAdditionalForScribe) {
+        card.appendChild(bigButton('先ほど' + action + 'したご家族が続けて署名', () => continueWith(reusableScribe)));
+        if (!(currentSigningTemplate.requireAdditionalForScribe && previous.signingCapacity === 'scribe' && SigningFlow.getSession().signingMode === 'optional')) {
           card.appendChild(bigButton('別の方が署名', () => continueWith({})));
         }
       } else {
@@ -4331,7 +4546,7 @@ const VoidFlow = (() => {
         row.appendChild(img);
         const info = document.createElement('div');
         info.className = 'signer-thumb-info';
-        info.textContent = (ROLE_LABELS[s.role] || s.role) + '　' + s.typedName + (s.relationship ? '（続柄: ' + s.relationship + '）' : '') + (s.address ? '　住所: ' + s.address : '') + '　記入方法: ' + ({self:'本人自署',scribe:'本人の意思による代筆',representative:'代理人署名',additional:'追加の署名'}[s.signingCapacity] || '従来の記録');
+        info.textContent = (ROLE_LABELS[s.role] || s.role) + '　' + s.typedName + (s.relationship ? '（続柄: ' + s.relationship + '）' : '') + (s.address ? '　住所: ' + Models.fullAddress(s.address,s.building) : '') + '　記入方法: ' + ({self:'本人自署',scribe:'本人の意思による代筆',representative:'代理人署名',additional:'追加の署名'}[s.signingCapacity] || '従来の記録');
         row.appendChild(info);
         // この人以降を取り直すことで、同意後に情報だけを書き換えない。
         {
@@ -4391,22 +4606,130 @@ const VoidFlow = (() => {
       (review.method !== 'electronic' || review.electronicConsent) && signingUiState.previewConfirmed);
   }
 
+  function openDraftDialog(restore) {
+    if (signingBusy) return;
+    if (!restore && !hasPendingSigning()) { alert('途中保存する契約がありません。'); return; }
+    const backdrop = document.createElement('div'); backdrop.className = 'modal-backdrop';
+    const box = document.createElement('div'); box.className = 'signing-modal-box draft-dialog';
+    const title = document.createElement('h3'); title.textContent = restore ? '途中保存から再開' : '途中保存（暗号化）';
+    const note = document.createElement('p');
+    note.textContent = restore ? '保存したファイルとパスワードを指定します。自動保存ではなく、最後に手動保存した時点から再開します。'
+      : '確定済みの署名と入力をパスワード付きファイルへ保存します。編集中の手書き署名は先に確定してください。録音中の場合は保存時に停止します。パスワードを忘れると復元できません。';
+    box.append(title,note);
+    let fileInput = null;
+    if (restore) {
+      const label = document.createElement('label'); label.className = 'signing-field-label'; label.textContent = '暗号化した途中保存ファイル';
+      fileInput = document.createElement('input'); fileInput.type = 'file'; fileInput.id = 'draft-restore-file'; fileInput.accept = '.keiyaku,.json';
+      label.append(fileInput); box.append(label);
+    }
+    const passwordLabel = document.createElement('label'); passwordLabel.className = 'signing-field-label'; passwordLabel.textContent = '途中保存用パスワード';
+    const password = document.createElement('input'); password.type = 'password'; password.autocomplete = restore ? 'current-password' : 'new-password';
+    passwordLabel.append(password); box.append(passwordLabel);
+    let repeat = null;
+    if (!restore) {
+      const label = document.createElement('label'); label.className = 'signing-field-label'; label.textContent = 'パスワードをもう一度';
+      repeat = document.createElement('input'); repeat.type = 'password'; repeat.autocomplete = 'new-password'; label.append(repeat); box.append(label);
+    }
+    const status = document.createElement('p'); status.setAttribute('role','status'); box.append(status);
+    const close = () => { password.value = ''; if (repeat) repeat.value = ''; backdrop.remove(); };
+    const cancel = bigButton('閉じる',close,true);
+    const submit = bigButton(restore ? '復元して再開' : '暗号化して保存',async () => {
+      if (password.value.length < 12) { status.textContent = 'パスワードは12文字以上にしてください。'; return; }
+      if (!restore && password.value !== repeat.value) { status.textContent = '二つのパスワードが一致しません。'; return; }
+      submit.disabled = true; cancel.disabled = true; signingBusy = true;
+      try {
+        if (restore) {
+          const file = fileInput.files[0];
+          if (!file || file.size > 56*1024*1024) throw new Error('56MB以下の途中保存ファイルを選択してください。');
+          const state = await DraftVault.decrypt(await file.text(),password.value);
+          if (!state || state.format !== 'keiyaku-draft-state' || state.version !== 1 || !state.template || !state.ui ||
+              !['recipient_name','handoff','document','review'].includes(state.ui.phase)) throw new Error('途中保存の契約データの形式が正しくありません。');
+          const errors = Models.validateTemplate(state.template); if (errors.length) throw new Error(errors.join('\n'));
+          if (state.flow) {
+            SigningFlow.validateState(state.flow);
+            if (JSON.stringify(state.template) !== JSON.stringify(state.flow.template)) throw new Error('途中保存の書式が署名記録と一致しません。');
+          } else if (state.ui.phase !== 'recipient_name') throw new Error('途中の署名工程が欠落しています。');
+          const pdf = await PdfUtils.loadPdf(PdfUtils.base64ToArrayBuffer(state.template.pdfBase64));
+          try {
+            if (pdf.numPages !== state.template.pages.length) throw new Error('途中保存のPDFページ数が一致しません。');
+            for (let index=0; index<pdf.numPages; index++) {
+              const size = await PdfUtils.getPageSize(pdf,index+1), page = state.template.pages[index];
+              if (Math.abs(size.widthPt-page.widthPt)>0.1 || Math.abs(size.heightPt-page.heightPt)>0.1) throw new Error('途中保存のPDF寸法が一致しません。');
+            }
+          } finally { pdf.destroy(); }
+          let audio = null;
+          if (state.audio) {
+            if (!['audio/webm','audio/mp4','audio/ogg'].some(type => String(state.audio.type).startsWith(type))) throw new Error('途中保存の録音形式が未対応です。');
+            audio = new Blob([DraftVault.fromBase64(state.audio.bytes)],{type:state.audio.type});
+          }
+          if ((hasPendingSigning() || completedExport && !completedExport.confirmed) && !confirm('今の契約データを破棄し、途中保存した契約へ戻りますか？')) return;
+          if (activeRecording) activeRecording.cancel(); activeRecording = null;
+          if (recordingTimerHandle) clearInterval(recordingTimerHandle); recordingTimerHandle = null; recordingStartedAt = null;
+          if (state.flow) SigningFlow.restoreState(state.flow);
+          currentSigningTemplate = state.template; completedExport = null; sessionAudioBlob = audio;
+          const phase = state.flow ? SigningFlow.isQueueComplete() ? 'review' : 'handoff' : 'recipient_name';
+          signingUiState = {phase,restoredDraft:true,draft:state.ui.draft || {},review:state.ui.review,resignOf:state.ui.resignOf || null,previewConfirmed:false};
+          q('btn-nav-resume').classList.remove('hidden'); q('btn-nav-draft-save').classList.remove('hidden'); q('btn-nav-last-export').classList.add('hidden');
+          signingBusy = false; close(); showScreen('signing'); renderSigningStep(); showToast('途中保存した時点から再開しました');
+        } else {
+          if (activeRecording) {
+            const recorder = activeRecording; activeRecording = null;
+            sessionAudioBlob = await recorder.stop();
+            if (recordingTimerHandle) clearInterval(recordingTimerHandle); recordingTimerHandle = null;
+          }
+          const state = {format:'keiyaku-draft-state',version:1,template:currentSigningTemplate,
+            flow:signingUiState.phase === 'recipient_name' ? null : SigningFlow.exportState(),
+            ui:{phase:signingUiState.phase,draft:signingUiState.draft,review:signingUiState.review,resignOf:signingUiState.resignOf},
+            audio:sessionAudioBlob ? {type:sessionAudioBlob.type,bytes:DraftVault.toBase64(new Uint8Array(await sessionAudioBlob.arrayBuffer()))} : null};
+          const encrypted = await DraftVault.encrypt(state,password.value);
+          const save = bigButton('途中保存ファイルを端末へ保存', () => {
+            try { ExportModule.downloadBlob(new TextEncoder().encode(encrypted),'契約途中保存_'+Date.now()+'.keiyaku','application/octet-stream'); status.textContent = '保存操作を開始しました。保存先を確認してください。パスワードとファイルを両方保管してください。'; }
+            catch(e) { status.textContent = '保存できませんでした。もう一度保存してください。' + e.message; }
+          });
+          // 暗号化の待ち時間でiPadのタップ権限が切れないよう、保存は別の明示操作にする。
+          submit.hidden = true; password.value = ''; repeat.value = ''; password.disabled = true; repeat.disabled = true;
+          box.insertBefore(save,cancel); status.textContent = '暗号化できました。下のボタンで端末に保存してください。';
+        }
+      } catch(e) { status.textContent = e.message; }
+      finally { submit.disabled = false; cancel.disabled = false; signingBusy = false; }
+    });
+    box.append(submit,cancel); backdrop.append(box); document.body.append(backdrop);
+  }
+
   function addReviewControls(card, session) {
     const review = signingUiState.review || (signingUiState.review = {
-      providerName: '', staffName: '', method: 'paper', electronicConsent: false,
+      providerName: OperatorSettings.load().providerName, staffName: '', method: 'paper', electronicConsent: false,
     });
     const address = document.createElement('p');
-    address.textContent = '利用者住所: ' + (session.recipientAddress || '書式で入力不要'); card.append(address);
+    address.textContent = '利用者住所: ' + (Models.fullAddress(session.recipientAddress,session.recipientBuilding) || '書式で入力不要'); card.append(address);
     function update() {
       signingUiState.previewConfirmed = false;
       const button = q('btn-finalize-signing'); if (button) button.disabled = true;
     }
+    const registered = OperatorSettings.load();
+    const staffChoiceLabel = document.createElement('label'); staffChoiceLabel.className = 'signing-field-label';
+    staffChoiceLabel.textContent = '登録した担当者を選ぶ';
+    const staffChoice = document.createElement('select'); staffChoice.id = 'review-staff-choice';
+    [['','担当者を選択してください'],...registered.staffNames.map(name => [name,name]),['__manual__','直接入力する']].forEach(([value,text]) => {
+      const option = document.createElement('option'); option.value = value; option.textContent = text; staffChoice.append(option);
+    });
+    staffChoice.value = registered.staffNames.includes(review.staffName) ? review.staffName : review.staffName || !registered.staffNames.length ? '__manual__' : '';
+    staffChoiceLabel.append(staffChoice);
+    const reviewerLabels = {};
     ['providerName','staffName'].forEach((key, index) => {
       const label = document.createElement('label'); label.className = 'signing-field-label';
       label.textContent = index ? '説明・確認した担当者名' : '事業所名';
       const input = document.createElement('input'); input.value = review[key];
       input.addEventListener('input', () => { review[key] = input.value; update(); });
-      label.append(input); card.append(label);
+      label.append(input); card.append(label); reviewerLabels[key] = label;
+      if (key === 'staffName') {
+        input.id = 'review-staff-input'; card.insertBefore(staffChoiceLabel,label);
+        label.hidden = staffChoice.value !== '__manual__';
+      }
+    });
+    staffChoice.addEventListener('change', () => {
+      review.staffName = staffChoice.value === '__manual__' ? '' : staffChoice.value;
+      q('review-staff-input').value = review.staffName; reviewerLabels.staffName.hidden = staffChoice.value !== '__manual__'; update();
     });
     const methodLabel = document.createElement('label'); methodLabel.className = 'signing-field-label';
     methodLabel.textContent = '控えの交付方法';
@@ -4462,7 +4785,7 @@ const VoidFlow = (() => {
     card.append(bigButton('利用者情報から確認し直す（全署名を取り直す）', () => {
       if (signingBusy) return;
       if (!confirm('全員の署名を取り直します。利用者情報の確認から始めますか？')) return;
-      signingUiState = {phase:'recipient_name', draft:{recipientName:session.recipientName, recipientAddress:session.recipientAddress}, resignOf:session.resignOf};
+      signingUiState = {phase:'recipient_name', draft:{recipientName:session.recipientName, recipientAddress:session.recipientAddress, recipientBuilding:session.recipientBuilding}, resignOf:session.resignOf};
       renderSigningStep();
     }, true));
   }
@@ -4790,6 +5113,7 @@ const VoidFlow = (() => {
         nameLabelText.textContent = value === 'family' ? '実際に記入するご家族のお名前' : 'お名前';
         nameInput.value = value === 'recipient' ? recipientName : '';
         addressInput.value = value === 'recipient' ? recipientAddress : '';
+        buildingInput.value = value === 'recipient' ? SigningFlow.getSession().recipientBuilding || '' : '';
         relInput.value = '';
         Object.values(roleToggleButtons).forEach(b => b.classList.remove('is-active'));
         btn.classList.add('is-active');
@@ -4848,6 +5172,11 @@ const VoidFlow = (() => {
     addressInput.value = signingUiState.draft.address || (currentRole() === 'recipient' ? recipientAddress : '');
     addressLabel.appendChild(addressInput);
     box.appendChild(addressLabel);
+    const buildingLabel = document.createElement('label'); buildingLabel.className = 'signing-field-label';
+    buildingLabel.textContent = '記入者の建物名・部屋番号（任意）';
+    const buildingInput = document.createElement('input'); buildingInput.placeholder = '例：ケアマンションA棟101号室';
+    buildingInput.value = signingUiState.draft.building || (currentRole() === 'recipient' ? SigningFlow.getSession().recipientBuilding || '' : '');
+    buildingLabel.append(buildingInput); box.append(buildingLabel);
     const copyRecipientAddressBtn = document.createElement('button');
     copyRecipientAddressBtn.type = 'button';
     copyRecipientAddressBtn.className = 'tool-button-small';
@@ -4856,6 +5185,8 @@ const VoidFlow = (() => {
     copyAddressHint.className = 'side-panel-hint';
     copyRecipientAddressBtn.addEventListener('click', () => {
       addressInput.value = recipientAddress;
+      buildingInput.value = SigningFlow.getSession().recipientBuilding || '';
+      updateConfirmEnabled();
       copyAddressHint.textContent = '本人住所を入力しました。異なる場合は編集してください。';
     });
     addressInput.addEventListener('input', () => { copyAddressHint.textContent = ''; });
@@ -4885,11 +5216,17 @@ const VoidFlow = (() => {
     declRow.appendChild(declCheckbox);
     declRow.appendChild(document.createTextNode('私は契約者の代理人として、本書面に署名する権限を有していることを認めます。'));
     familySection.appendChild(declRow);
-    const authorityBasisInput = document.createElement('input');
-    authorityBasisInput.type = 'text'; authorityBasisInput.placeholder = '例：成年後見人・登記事項証明書を確認';
+    const authorityLabel = document.createElement('label'); authorityLabel.className = 'signing-field-label authority-required';
+    const authorityTitle = document.createElement('span'); authorityTitle.textContent = '代理人として署名できる根拠（必須）';
+    authorityLabel.append(authorityTitle);
+    const authorityBasisInput = document.createElement('textarea'); authorityBasisInput.rows = 3;
+    authorityBasisInput.placeholder = '例：成年後見人／登記事項証明書を確認、本人からの委任／委任状を確認';
     authorityBasisInput.value = signingUiState.draft.authorityBasis || '';
     authorityBasisInput.setAttribute('aria-label','代理権の根拠');
-    familySection.appendChild(authorityBasisInput);
+    authorityLabel.append(authorityBasisInput);
+    const authorityHint = document.createElement('p'); authorityHint.className = 'side-panel-hint';
+    authorityHint.textContent = '「誰として」「何を確認して」代理署名するかを記録します。続柄だけでなく、確認した権限の根拠を書いてください。';
+    authorityLabel.append(authorityHint); familySection.append(authorityLabel);
     const scribeRow = document.createElement('label'); scribeRow.className = 'signing-checkbox-row';
     const scribeCheckbox = document.createElement('input'); scribeCheckbox.type = 'checkbox';
     scribeCheckbox.checked = !!signingUiState.draft.recipientConsentConfirmed;
@@ -4900,7 +5237,7 @@ const VoidFlow = (() => {
 
     // 事業所がテンプレートに配置した確認チェック欄(例：重要事項説明を聞きました)を、
     // 役割に応じて動的に列挙する。全てチェックしないと署名を確定できないようにする
-    const declarationsSection = document.createElement('div');
+    const declarationsSection = document.createElement('div'); declarationsSection.className = 'declarations-section';
     box.appendChild(declarationsSection);
     let declarationCheckboxes = []; // [{ field, checkbox }]
 
@@ -4909,6 +5246,7 @@ const VoidFlow = (() => {
       const addressFields = findTemplateFieldsForRole(role, ['address'], field.id);
       const relationshipFields = findTemplateFieldsForRole(role, ['relationship'], field.id);
       addressLabel.style.display = addressFields.length ? '' : 'none';
+      buildingLabel.style.display = addressFields.length ? '' : 'none';
       copyRecipientAddressBtn.style.display = addressFields.length && role !== 'recipient' && recipientAddress ? '' : 'none';
       if (copyRecipientAddressBtn.style.display === 'none') copyAddressHint.textContent = '';
       addressLabelText.textContent = addressFields.some(item => item.required) ? '記入者住所（PDF印字用・必須）' : '記入者住所（PDF印字用・任意）';
@@ -4917,7 +5255,7 @@ const VoidFlow = (() => {
       relLabelText.textContent = relationshipFields.some(item => item.required) ? 'ご本人との続柄（必須）' : 'ご本人との続柄（任意）';
       capacityLabel.style.display = role === 'family' && !plannedCapacity ? '' : 'none';
       declRow.style.display = role === 'family' && selectedCapacity === 'representative' ? '' : 'none';
-      authorityBasisInput.style.display = role === 'family' && selectedCapacity === 'representative' ? '' : 'none';
+      authorityLabel.style.display = role === 'family' && selectedCapacity === 'representative' ? '' : 'none';
       scribeRow.style.display = role === 'family' && selectedCapacity === 'scribe' ? '' : 'none';
       capacityHelp.textContent = role === 'family' && selectedCapacity === 'scribe'
         ? '手書き欄には、本人の依頼に基づいて利用者本人のお名前を代筆してください。上の氏名欄には、実際に代筆したご家族のお名前を入力します。'
@@ -4934,17 +5272,24 @@ const VoidFlow = (() => {
 
       declarationsSection.innerHTML = '';
       declarationCheckboxes = [];
+      const heading = document.createElement('h4'); heading.textContent = 'この書面の確認事項'; declarationsSection.append(heading);
+      const declarationGroups = new Map();
       findTemplateFieldsForRole(role, ['declaration_checkbox'], field.id).forEach(f => {
+        const label = f.label || '内容を確認しました';
+        const required = findTemplateFieldsForRole(role, ['declaration_checkbox'], field.id).some(item => (item.label || '内容を確認しました') === label && item.required);
+        if (declarationGroups.has(label)) { declarationCheckboxes.push({field:f,checkbox:declarationGroups.get(label)}); return; }
         const row = document.createElement('label');
         row.className = 'signing-checkbox-row';
         const cb = document.createElement('input');
         cb.type = 'checkbox';
         cb.addEventListener('change', updateConfirmEnabled);
         row.appendChild(cb);
-        row.appendChild(document.createTextNode(f.label || '内容を確認しました'));
+        row.appendChild(document.createTextNode((required ? '【必須】' : '【任意】') + label));
+        declarationGroups.set(label,cb);
         declarationsSection.appendChild(row);
         declarationCheckboxes.push({ field: f, checkbox: cb });
       });
+      declarationsSection.hidden = !declarationCheckboxes.length;
       updateConfirmEnabled();
     }
 
@@ -4974,6 +5319,7 @@ const VoidFlow = (() => {
     // 非力な端末でApple Pencilの描画イベント処理と競合するのを避けるため)
     document.body.classList.add('modal-open');
     function closeModal() {
+      Object.assign(signingUiState.draft, {typedName:nameInput.value, address:addressInput.value, building:buildingInput.value, relationship:relInput.value, authorityBasis:authorityBasisInput.value});
       backdrop.remove();
       document.body.classList.remove('modal-open');
       modalPadInstance.destroy();
@@ -4995,19 +5341,31 @@ const VoidFlow = (() => {
     // 署名・代理権限チェック・確認チェック欄が全て揃うまで確定ボタンを押せないようにする
     function updateConfirmEnabled() {
       const role = currentRole();
-      const sigValid = modalPadInstance.isValid();
-      const familyOk = role !== 'family' || (selectedCapacity === 'scribe'
-        ? scribeCheckbox.checked
-        : selectedCapacity === 'representative' && declCheckbox.checked && authorityBasisInput.value.trim());
-      const declarationsOk = declarationCheckboxes.every(d => !d.field.required || d.checkbox.checked);
-      confirmBtn.disabled = !(sigValid && familyOk && declarationsOk);
+      const missing = [];
+      if (!nameInput.value.trim()) missing.push('実際に記入する方のお名前');
+      if (!modalPadInstance.isValid()) missing.push('手書き署名（点だけ・ごく小さい線では確定できません）');
+      const linkedFields = findTemplateFieldsForRole(role, ['address','relationship'], field.id);
+      if (linkedFields.some(item => item.type === 'address' && item.required) && !addressInput.value.trim()) missing.push('記入者の住所');
+      if (linkedFields.some(item => item.type === 'relationship' && item.required) && !relInput.value.trim()) missing.push('本人との続柄');
+      if (role === 'family' && selectedCapacity === 'scribe' && !scribeCheckbox.checked) missing.push('本人の意思に基づく代筆の確認');
+      if (role === 'family' && selectedCapacity === 'representative') {
+        if (!declCheckbox.checked) missing.push('代理人として署名する権限の確認');
+        if (!authorityBasisInput.value.trim()) missing.push('代理権の根拠（例：成年後見人・委任状など）');
+      }
+      declarationCheckboxes.filter(d => d.field.required && !d.checkbox.checked).forEach(d => missing.push(d.field.label || '書式の確認事項'));
+      missingReasons.textContent = missing.length ? '確定するために必要な項目：' + missing.join(' ／ ') : '入力と確認が揃いました。署名全体を確認して確定してください。';
+      missingReasons.classList.toggle('is-ready', !missing.length);
+      confirmBtn.disabled = missing.length > 0;
     }
 
+    const missingReasons = document.createElement('p'); missingReasons.id = 'signer-missing-reasons'; missingReasons.className = 'signer-missing-reasons';
+    missingReasons.setAttribute('role','status');
     const confirmBtn = bigButton('この内容で確定する', () => {
       const role = currentRole();
       const isFamilyNow = role === 'family';
       const typedName = nameInput.value.trim();
       const address = addressLabel.style.display === 'none' ? '' : addressInput.value.trim();
+      const building = addressLabel.style.display === 'none' ? '' : buildingInput.value.trim();
       const relationship = relLabel.style.display === 'none' ? '' : relInput.value.trim();
       const signingCapacity = role === 'family' ? selectedCapacity : role === 'additional' ? 'additional' : 'self';
       const declarationChecked = isFamilyNow && signingCapacity === 'representative' ? declCheckbox.checked : false;
@@ -5020,10 +5378,10 @@ const VoidFlow = (() => {
       if (unchecked) { alert('「' + (unchecked.field.label || '確認項目') + '」にチェックしてください'); return; }
       try {
         SigningFlow.submitCurrentSigner({
-          typedName, address: address || null, relationship: relationship || null, declarationChecked,
+          typedName, address: address || null, building, relationship: relationship || null, declarationChecked,
           signingCapacity, recipientConsentConfirmed, authorityBasis,
           role,
-          confirmedDeclarations: declarationCheckboxes.filter(d => d.checkbox.checked).map(d => d.field.label || '確認項目'),
+          confirmedDeclarations: [...new Set(declarationCheckboxes.filter(d => d.checkbox.checked).map(d => d.field.label || '確認項目'))],
           confirmedDeclarationIds: declarationCheckboxes.filter(d => d.checkbox.checked).map(d => d.field.id),
           signatureImageDataUrl: modalPadInstance.toDataUrl(),
         });
@@ -5045,7 +5403,7 @@ const VoidFlow = (() => {
     const redoBtn = bigButton('やり直す', () => modalPadInstance.clear(), true);
     const cancelBtn = bigButton('キャンセル', closeModal, true);
 
-    box.appendChild(confirmBtn);
+    box.append(missingReasons,confirmBtn);
     box.appendChild(redoBtn);
     box.appendChild(cancelBtn);
     backdrop.appendChild(box);
@@ -5069,7 +5427,7 @@ const VoidFlow = (() => {
     // 必ず上のSignaturePad.create()より後で呼び出す
     declCheckbox.addEventListener('change', updateConfirmEnabled);
     scribeCheckbox.addEventListener('change', updateConfirmEnabled);
-    authorityBasisInput.addEventListener('input', updateConfirmEnabled);
+    [nameInput,addressInput,buildingInput,relInput,authorityBasisInput].forEach(input => input.addEventListener('input', updateConfirmEnabled));
     rebuildDynamicSections();
   }
 
@@ -5125,7 +5483,7 @@ const VoidFlow = (() => {
       closeModal();
     });
     const cancelBtn = bigButton('キャンセル', closeModal, true);
-    box.appendChild(confirmBtn);
+    box.append(missingReasons,confirmBtn);
     box.appendChild(cancelBtn);
 
     backdrop.appendChild(box);
@@ -5265,6 +5623,7 @@ const VoidFlow = (() => {
     signingBusy = false;
     signingUiState.phase = 'done';
     q('btn-nav-resume').classList.add('hidden');
+    q('btn-nav-draft-save').classList.add('hidden');
     q('btn-nav-last-export').classList.remove('hidden');
     renderCompletedExport();
     try {
@@ -5391,6 +5750,16 @@ const VoidFlow = (() => {
     el.cloudDriveStatus = q('cloud-drive-status');
     el.cloudDriveToggleBtn = q('btn-cloud-drive-toggle');
 
+    q('toggle-print-preview').addEventListener('change', event => FieldEditor.setPrintPreviewVisible(event.target.checked));
+    q('btn-operator-settings').addEventListener('click', () => {
+      const settings = OperatorSettings.load(); q('settings-provider').value = settings.providerName; q('settings-staff').value = settings.staffNames.join('\n'); showScreen('settings');
+    });
+    q('btn-settings-save').addEventListener('click', () => {
+      try { OperatorSettings.save({providerName:q('settings-provider').value,staffNames:q('settings-staff').value.split(/\r?\n/)}); showToast('事業所・担当者を登録しました'); showScreen('home'); } catch(e) { alert(e.message); }
+    });
+    q('btn-settings-home').addEventListener('click', () => showScreen('home'));
+    q('btn-nav-draft-save').addEventListener('click', () => openDraftDialog(false));
+    q('btn-draft-restore').addEventListener('click', () => openDraftDialog(true));
     q('btn-nav-resume').addEventListener('click', () => { showScreen('signing'); renderSigningStep(); });
     q('btn-nav-home').addEventListener('click', () => { showScreen('home'); renderHomeTemplateList(); });
     q('btn-nav-new-template').addEventListener('click', () => { if (signingBusy) return; resetTemplateEditor(); showScreen('template-editor'); });
