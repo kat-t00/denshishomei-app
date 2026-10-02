@@ -504,7 +504,7 @@ input, textarea {
 }
 
 .field-box-print-preview.is-multiline {
-  white-space: normal;
+  white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
@@ -1319,10 +1319,12 @@ html[data-theme="dark"] .signature-tools .signature-clear { color:#ffc2b8; }
 .field-assignment-target { padding:10px 12px; margin:8px 0 12px; border-left:3px solid #42768c; border-radius:4px; background:#e8f1f5; color:#25485a; font-size:13px; line-height:1.6; }
 html[data-theme="dark"] .field-assignment-target { background:#263e4b; color:#d7eaf3; }
 
+.signing-address-summary { white-space:pre-line; overflow-wrap:anywhere; }
+
 </style>
 </head>
 <body>
-<div style="padding:8px 20px;background:#203e54;color:#dae9f0;border-bottom:1px solid #547182;font-size:12px;text-align:center">実務フロー検証版・署名者項目の自動割当を改善｜架空の情報でお試しください。</div>
+<div style="padding:8px 20px;background:#203e54;color:#dae9f0;border-bottom:1px solid #547182;font-size:12px;text-align:center">実務フロー検証版・住所と建物名の改行表示を統一｜架空の情報でお試しください。</div>
   <header class="app-header">
     <div class="app-header-top">
       <h1>電子契約アプリ</h1>
@@ -1425,7 +1427,9 @@ html[data-theme="dark"] .field-assignment-target { background:#263e4b; color:#d7
             <label class="field-label">1人目の見本氏名<input id="preview-name" value="山田 太郎" /></label>
             <label class="field-label">2人目以降の見本氏名<input id="preview-additional-name" value="山田 花子" /></label>
             <label class="field-label">見本の利用者住所<input id="preview-recipient-address" value="東京都千代田区丸の内一丁目2番3号" /></label>
-            <label class="field-label">見本の署名者住所<input id="preview-address" value="東京都千代田区丸の内一丁目2番3号 ケアマンション101号室" /></label>
+            <label class="field-label">見本の利用者建物名・部屋番号<input id="preview-recipient-building" value="見本マンション101号室" /></label>
+            <label class="field-label">見本の署名者住所<input id="preview-address" value="東京都千代田区丸の内一丁目2番3号" /></label>
+            <label class="field-label">見本の署名者建物名・部屋番号<input id="preview-building" value="ケアマンション101号室" /></label>
             <label class="field-label">1人目の記入者<select id="preview-role"><option value="recipient">利用者本人</option><option value="family">ご家族（代筆・代理）</option></select></label>
           </details>
           <button id="btn-preview-template" class="tool-button" type="button">試し印字を確認</button>
@@ -4586,13 +4590,13 @@ const VoidFlow = (() => {
       const name = q('preview-name').value.trim() || '山田 太郎';
       const role = q('preview-role').value;
       const sampleSignature = FieldEditor.getSignatureSample();
-      const session = Models.createSigningSession({ recipientName: role === 'recipient' ? name : '利用者 見本', recipientAddress: q('preview-recipient-address').value, status: 'completed',
+      const session = Models.createSigningSession({ recipientName: role === 'recipient' ? name : '利用者 見本', recipientAddress: q('preview-recipient-address').value, recipientBuilding: q('preview-recipient-building').value, status: 'completed',
         completedAt: new Date().toISOString(), templateVersion: template.version });
       const signatures = template.pages.flatMap(page => page.fields).filter(field => field.type === 'signature').sort((a,b) => a.signOrder - b.signOrder);
       session.signers = signatures.map((field, index) => Models.createSigner({
         fieldId: field.id, role: index === 0 ? role : 'additional', order: index + 1,
         typedName: index === 0 ? name : q('preview-additional-name').value.trim() || '山田 花子',
-        address: q('preview-address').value, relationship: index > 0 || role === 'family' ? '長女' : '',
+        address: q('preview-address').value, building: q('preview-building').value, relationship: index > 0 || role === 'family' ? '長女' : '',
         declarationChecked: role === 'family', signedAt: session.completedAt,
         signatureImageDataUrl: FieldEditor.getSignaturePreview(field.id) || sampleSignature,
       }));
@@ -4820,6 +4824,7 @@ const VoidFlow = (() => {
         row.appendChild(img);
         const info = document.createElement('div');
         info.className = 'signer-thumb-info';
+        info.classList.add('signing-address-summary');
         info.textContent = (ROLE_LABELS[s.role] || s.role) + '　' + s.typedName + (s.relationship ? '（続柄: ' + s.relationship + '）' : '') + (s.address ? '　住所: ' + Models.fullAddress(s.address,s.building) : '') + '　記入方法: ' + ({self:'本人自署',scribe:'本人の意思による代筆',representative:'代理人署名',additional:'追加の署名'}[s.signingCapacity] || '従来の記録');
         row.appendChild(info);
         // この人以降を取り直すことで、同意後に情報だけを書き換えない。
@@ -4969,6 +4974,7 @@ const VoidFlow = (() => {
       providerName: OperatorSettings.load().providerName, staffName: '', method: 'paper', electronicConsent: false,
     });
     const address = document.createElement('p');
+    address.classList.add('signing-address-summary');
     address.textContent = '利用者住所: ' + (Models.fullAddress(session.recipientAddress,session.recipientBuilding) || '書式で入力不要'); card.append(address);
     function update() {
       signingUiState.previewConfirmed = false;
