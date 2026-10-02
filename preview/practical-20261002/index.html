@@ -1321,10 +1321,12 @@ html[data-theme="dark"] .field-assignment-target { background:#263e4b; color:#d7
 
 .signing-address-summary { white-space:pre-line; overflow-wrap:anywhere; }
 
+.storage-startup-error { padding: 20px; margin: 16px; border: 1px solid #ba6847; background: #fff2e9; color: #612d1b; }
+
 </style>
 </head>
 <body>
-<div style="padding:8px 20px;background:#203e54;color:#dae9f0;border-bottom:1px solid #547182;font-size:12px;text-align:center">実務フロー検証版・住所欄の行数設定を追加｜架空の情報でお試しください。</div>
+<div style="padding:8px 20px;background:#203e54;color:#dae9f0;border-bottom:1px solid #547182;font-size:12px;text-align:center">実務フロー検証版・複数ページPDFの保存容量を改善｜架空の情報でお試しください。</div>
   <header class="app-header">
     <div class="app-header-top">
       <h1>電子契約アプリ</h1>
@@ -1374,6 +1376,7 @@ html[data-theme="dark"] .field-assignment-target { background:#263e4b; color:#d7
           <button id="btn-open-verification" class="tool-button-small" type="button">保存した書類を照合</button>
           <button id="btn-export-templates" class="tool-button-small" type="button">テンプレートをバックアップ</button>
           <button id="btn-import-templates" class="tool-button-small" type="button">バックアップから復元・追加</button>
+          <p class="side-panel-hint">バックアップの取込みは1ファイル64MBまでです。大きい場合は、書式を選んで分けてバックアップしてください。</p>
           <input type="file" id="import-templates-input" accept="application/json" class="hidden" />
         </div>
         <div id="cloud-drive-section" class="cloud-drive-box hidden">
@@ -1391,6 +1394,8 @@ html[data-theme="dark"] .field-assignment-target { background:#263e4b; color:#d7
         <aside class="side-panel">
           <h2> PDFを選ぶ</h2><p class="side-panel-hint">未記入の原本PDFを使ってください。PDF全体が端末とバックアップに保存されます。</p>
           <input type="file" id="pdf-file-input" accept="application/pdf" />
+          <p class="side-panel-hint">複数ページに対応しています。ページ数の固定上限はなく、PDFは1書式20MBまでです。保存できる合計容量は端末・ブラウザに依存します。</p>
+          <p id="pdf-file-status" class="side-panel-hint" role="status"></p>
           <h2>項目を配置</h2>
           <p class="side-panel-hint">枠内の氏名・住所・続柄は架空の「印字見本」です。実際の契約には入力した内容が印字されます。</p>
           <label class="checkbox-row"><input type="checkbox" id="toggle-print-preview" checked />印字見本を表示</label>
@@ -1422,6 +1427,8 @@ html[data-theme="dark"] .field-assignment-target { background:#263e4b; color:#d7
             <input type="text" id="template-version-label-input" placeholder="例：2026年報酬改定対応版" />
           </label>
           <button id="btn-save-template" class="tool-button tool-button-primary" type="button">テンプレートを保存</button>
+          <button id="btn-backup-editing-template" class="tool-button" type="button">編集中の書式をバックアップ</button>
+          <p class="side-panel-hint">保存できない場合や作成を中断する場合、編集中の書式をファイルへ退避できます。ホームの「バックアップから復元・追加」で編集を再開します。</p>
           <details>
             <summary>試し印字の内容</summary>
             <label class="field-label">1人目の見本氏名<input id="preview-name" value="山田 太郎" /></label>
@@ -1995,36 +2002,107 @@ const HashUtils = (() => {
 
 </script>
   <script>
-// テンプレート（署名欄を配置したPDFの定義）をlocalStorageに保存・読込する。
+// テンプレート（PDFと配置定義）はIndexedDBに保存。旧localStorageは書込み完了後に移行する。
 // 個人情報を含まないデータ(PDF書式そのものと座標定義のみ)なので自動保存してよい。
 const TemplateStore = (() => {
   const STORAGE_KEY = 'preview_practical_20261002_keiyaku_templates_v1';
 
-  function loadAll() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch (e) {
-      console.error('テンプレートの読込に失敗しました', e);
-      return [];
-    }
+  const MAX_PDF_BYTES = 20 * 1024 * 1024;
+  let database = null;
+  let templatesCache = [];
+  let initialization = null;
+  let writes = Promise.resolve();
+
+  function init() {
+    if (initialization) return initialization;
+    initialization = new Promise((resolve, reject) => {
+      if (typeof indexedDB === 'undefined') { reject(new Error('このブラウザでは書式の保存機能を使えません。')); return; }
+      const opening = indexedDB.open(STORAGE_KEY + '_database', 1);
+      opening.onupgradeneeded = () => opening.result.createObjectStore('state');
+      opening.onerror = () => reject(opening.error);
+      opening.onblocked = () => reject(new Error('別のタブが保存領域を使用しています。古いタブを閉じて再読み込みしてください。'));
+      opening.onsuccess = () => {
+        database = opening.result;
+        database.onversionchange = () => database.close();
+        let legacy = null;
+        let legacyTemplates;
+        try {
+          legacy = localStorage.getItem(STORAGE_KEY);
+          legacyTemplates = legacy ? JSON.parse(legacy) : [];
+          if (!Array.isArray(legacyTemplates)) throw new Error('既存書式の形式が正しくありません。元のデータは削除していません。');
+        } catch (error) { reject(error); return; }
+        const transaction = database.transaction('state','readwrite');
+        const store = transaction.objectStore('state');
+        const reading = store.get('templates');
+        let saved;
+        let migrated = false;
+        let migrationError;
+        reading.onsuccess = () => {
+          saved = reading.result;
+          if (!saved) {
+            try { saved = legacyTemplates; store.put(saved,'templates'); migrated = true; }
+            catch(error) { migrationError = error; transaction.abort(); return; }
+          }
+          if (!Array.isArray(saved)) { transaction.abort(); return; }
+        };
+        transaction.oncomplete = () => {
+          templatesCache = saved;
+          // 移行先の書込み完了後だけ旧データを解放。同時に旧版が更新した場合は残す。
+          try { if (migrated && legacy && localStorage.getItem(STORAGE_KEY) === legacy) localStorage.removeItem(STORAGE_KEY); }
+          catch(error) { console.warn('旧書式データは移行済みですが旧保存領域を解放できませんでした',error); }
+          resolve();
+        };
+        transaction.onabort = () => reject(migrationError || transaction.error || new Error('書式の移行を完了できませんでした。元のデータは削除していません。'));
+        transaction.onerror = () => {};
+      };
+    });
+    return initialization;
   }
 
-  function saveAll(templates) {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(templates));
-    } catch (e) {
-      // テンプレートはPDF本体(base64)を含むため、編集・署名を重ねるうちに
-      // ブラウザのlocalStorage上限(5〜10MB程度)に達することがある(QuotaExceededError)。
-      // ただしプライベートブラウジング等で保存機能自体が制限されている場合も同じ例外系に
-      // 落ちてくるため、「容量超過」と決め打ちせず、両方の可能性を案内した上で
-      // 実際のエラー内容も添えて呼び出し元(app.js)に投げ直す(誤診断を防ぐため)
-      console.error('テンプレートの保存に失敗しました', e);
-      throw new Error('テンプレートの保存に失敗しました。' +
-        'ブラウザの保存容量が上限に達しているか、プライベートブラウジング等で保存機能が制限されている可能性があります。' +
-        '通常モードで開き直すか、「テンプレートをバックアップ」で保存後に使わなくなったテンプレートを削除してください。' +
-        '\n（詳細: ' + (e.name || 'Error') + ' ' + (e.message || '') + '）');
-    }
+  function loadAll() { return structuredClone(templatesCache); }
+
+  function storageError(error) {
+    const message = error && error.name === 'QuotaExceededError'
+      ? '端末の保存容量が不足しています。'
+      : 'ブラウザの保存領域に書き込めませんでした。';
+    return new Error(message + '編集内容はこの画面に残っています。「編集中の書式をバックアップ」で退避できます。\n（詳細: ' + (error && error.message || '不明') + '）');
+  }
+
+  function changeTemplates(change) {
+    const operation = writes.then(async () => {
+      await init();
+      return new Promise((resolve,reject) => {
+        const transaction = database.transaction('state','readwrite');
+        const store = transaction.objectStore('state');
+        const reading = store.get('templates');
+        let next, result, failure;
+        reading.onsuccess = () => {
+          try {
+            next = reading.result || [];
+            result = change(next);
+            store.put(next,'templates');
+          } catch(error) { failure = error.name === 'QuotaExceededError' ? storageError(error) : error; transaction.abort(); }
+        };
+        transaction.oncomplete = () => { templatesCache = structuredClone(next); resolve(result); };
+        transaction.onabort = () => reject(failure || storageError(transaction.error));
+        transaction.onerror = () => {};
+      });
+    });
+    writes = operation.catch(() => {});
+    return operation;
+  }
+
+  function checkPdfSize(template) {
+    const encoded = String(template.pdfBase64 || '').replace(/\s/g,'');
+    const bytes = Math.floor(encoded.length * 3 / 4) - (encoded.endsWith('==') ? 2 : encoded.endsWith('=') ? 1 : 0);
+    if (bytes > MAX_PDF_BYTES) throw new Error('PDFは1書式20MBまでです。PDFを軽量化してから選択してください。');
+  }
+
+  async function getStorageInfo() {
+    await init();
+    let estimate = null;
+    try { if (navigator.storage && navigator.storage.estimate) estimate = await navigator.storage.estimate(); } catch (_) {}
+    return {templateCount:templatesCache.length,pdfBytes:templatesCache.reduce((total,t)=>total+Math.floor((t.pdfBase64 || '').length*3/4),0),estimate};
   }
 
   // 将来スキーマが変わっても古い保存データが壊れないように、読込時に必ず補正する
@@ -2100,55 +2178,40 @@ const TemplateStore = (() => {
   }
 
   function saveNew(template) {
-    const templates = loadAll();
-    templates.push(template);
-    saveAll(templates);
+    return changeTemplates(templates => { checkPdfSize(template); templates.push(template); });
   }
 
-  // 既存テンプレートを保存する。ただし既に署名実績がある場合は上書きせず、
-  // 新バージョン(同じfamilyId・version+1)を作り、旧版にsupersededByを設定する。
-  // これにより「この契約はどの版の書式に同意したか」を過去に遡って追跡できる。
   function saveEdit(template) {
-    const templates = loadAll();
-    const idx = templates.findIndex(t => t.id === template.id);
-    if (idx < 0) {
-      saveNew(template);
-      return template;
-    }
-    const existing = normalizeTemplate(templates[idx]);
-    if (!existing.hasSignedSessions) {
-      templates[idx] = Object.assign({}, template, { updatedAt: new Date().toISOString() });
-      saveAll(templates);
-      return templates[idx];
-    }
-    const newVersion = Object.assign({}, template, {
-      id: Models.makeId('tpl'),
-      familyId: existing.familyId,
-      version: existing.version + 1,
-      supersededBy: null,
-      hasSignedSessions: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+    return changeTemplates(templates => {
+      checkPdfSize(template);
+      const index = templates.findIndex(t => t.id === template.id);
+      if (index < 0) { templates.push(template); return template; }
+      const existing = normalizeTemplate(templates[index]);
+      if (!existing.hasSignedSessions) {
+        templates[index] = Object.assign({},template,{updatedAt:new Date().toISOString()});
+        return templates[index];
+      }
+      const newVersion = Object.assign({},template,{id:Models.makeId('tpl'),familyId:existing.familyId,
+        version:existing.version+1,supersededBy:null,hasSignedSessions:false,
+        createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
+      templates[index] = Object.assign({},existing,{supersededBy:newVersion.id,isArchived:true});
+      templates.push(newVersion);
+      return Object.assign({},newVersion,{versionedFrom:existing.version});
     });
-    // 署名実績のある旧版は一覧から見えなくする(データは残るので過去の契約の追跡には使える)
-    templates[idx] = Object.assign({}, existing, { supersededBy: newVersion.id, isArchived: true });
-    templates.push(newVersion);
-    saveAll(templates);
-    return Object.assign({}, newVersion, { versionedFrom: existing.version });
   }
 
-  // 署名が完了した時に呼び、以後このテンプレートを編集したら新バージョンになるよう印を付ける
   function markSigned(id) {
-    const templates = loadAll();
-    const idx = templates.findIndex(t => t.id === id);
-    if (idx >= 0) {
-      templates[idx] = Object.assign({}, templates[idx], { hasSignedSessions: true });
-      saveAll(templates);
-    }
+    return changeTemplates(templates => {
+      const index = templates.findIndex(t => t.id === id);
+      if (index >= 0) templates[index] = Object.assign({},templates[index],{hasSignedSessions:true});
+    });
   }
 
   function remove(id) {
-    saveAll(loadAll().filter(t => t.id !== id));
+    return changeTemplates(templates => {
+      const index = templates.findIndex(t => t.id === id);
+      if (index >= 0) templates.splice(index,1);
+    });
   }
 
   function exportAll() {
@@ -2161,17 +2224,19 @@ const TemplateStore = (() => {
     return loadAll().map(normalizeTemplate).filter(t => idSet.has(t.id));
   }
 
-  function importAll(templates) {
+  async function importAll(templates) {
     if (!Array.isArray(templates)) throw new Error('バックアップファイルの形式が正しくありません');
-    const current = loadAll();
+
     // 途中まで保存せず、全項目を検証してから一度だけ保存する。
     const imported = templates.map(t => {
       if (!(t && typeof t.id === 'string' && typeof t.name === 'string' && t.name.trim() && Array.isArray(t.pages) && t.pages.every(p => p && Array.isArray(p.fields) && p.fields.every(f => f && typeof f === 'object')))) throw new Error('バックアップ内の書式の形式が正しくありません。変更は保存していません。');
       if (typeof t.pdfBase64 !== 'string' || !/^JVBERi0[A-Za-z0-9+/=\s]*$/.test(t.pdfBase64)) throw new Error('バックアップ内のPDFデータが正しくありません。');
       const errors = Models.validateTemplate(t);
       if (errors.length) throw new Error('バックアップ内の書式を修正してください。\n' + errors.join('\n'));
+      checkPdfSize(t);
       return normalizeTemplate(t);
     });
+    return changeTemplates(current => {
     imported.forEach(t => {
       if (current.some(c => c.id === t.id)) {
         // 既存書式と署名実績を一切書き換えない。
@@ -2179,12 +2244,12 @@ const TemplateStore = (() => {
       }
       current.push(t);
     });
-    saveAll(current);
     return imported.length;
+    });
   }
 
   return {
-    list, get, saveNew, saveEdit, markSigned, remove, exportAll, exportSelected, importAll,
+    init, MAX_PDF_BYTES, getStorageInfo, list, get, saveNew, saveEdit, markSigned, remove, exportAll, exportSelected, importAll,
     normalizeTemplate, normalizeField,
   };
 })();
@@ -4135,7 +4200,7 @@ const ExportModule = (() => {
             }
           } finally { doc.destroy(); }
         }
-        const count = TemplateStore.importAll(data);
+        const count = await TemplateStore.importAll(data);
         onDone(null, count);
       } catch (e) {
         onDone(e, 0);
@@ -4378,9 +4443,9 @@ const VoidFlow = (() => {
     Forms.renderTemplateList(el.templateList, TemplateStore.list(), {
       onUse: (id) => beginSigningWithTemplate(id),
       onEdit: (id) => openTemplateForEditing(id),
-      onDelete: (id) => {
+      onDelete: async (id) => {
         if (confirm('このテンプレートを削除しますか？（過去に署名した記録には影響しません）')) {
-          TemplateStore.remove(id);
+          try { await TemplateStore.remove(id); } catch(error) { alert(error.message); return; }
           renderHomeTemplateList();
         }
       },
@@ -4465,6 +4530,41 @@ const VoidFlow = (() => {
   function updatePageIndicator() {
     el.pageIndicator.textContent = (FieldEditor.getCurrentPageIndex() + 1) + ' / ' + FieldEditor.getPageCount();
     updateEditorFieldSummary();
+    updatePdfStorageStatus();
+  }
+
+  async function updatePdfStorageStatus() {
+    const pdf = currentPdfBase64;
+    if (!pdf) { q('pdf-file-status').textContent = ''; return; }
+    const info = await TemplateStore.getStorageInfo();
+    if (pdf !== currentPdfBase64) return;
+    const mb = bytes => (bytes / (1024*1024)).toFixed(1);
+    let text = FieldEditor.getPageCount() + 'ページ ／ PDF約' + mb(pdf.length*3/4) + 'MB。保存済み書式：' + info.templateCount + '件。';
+    if (info.estimate && Number.isFinite(info.estimate.quota) && Number.isFinite(info.estimate.usage)) text += ' 保存可能容量の目安：約' + mb(Math.max(0,info.estimate.quota-info.estimate.usage)) + 'MB。';
+    q('pdf-file-status').textContent = text;
+  }
+
+  function backupEditingTemplate() {
+    if (!currentPdfBase64) { alert('先にPDFを選択してください。'); return; }
+    const template = Models.createTemplate({name:el.templateNameInput.value.trim() || '作成途中の書式',versionLabel:el.templateVersionLabelInput.value.trim(),pdfBase64:currentPdfBase64,
+      signingMode:q('template-signing-mode').value,requireAdditionalForScribe:q('template-require-additional-for-scribe').checked,
+      pages:JSON.parse(JSON.stringify(FieldEditor.getPages()))});
+    ExportModule.downloadBlob(JSON.stringify({format:'keiyaku-template-draft',version:1,template}), '編集中の書式_'+Date.now()+'.json','application/json');
+  }
+
+  async function restoreEditingTemplate(data) {
+    const template = data.template;
+    if (data.version !== 1 || !template || typeof template.name !== 'string' || typeof template.pdfBase64 !== 'string' || !Array.isArray(template.pages) || !template.pages.every(page=>page && Array.isArray(page.fields) && page.fields.every(field=>field && typeof field === 'object'))) throw new Error('編集中の書式ファイルの形式が正しくありません。');
+    if (template.pdfBase64.length*3/4 > TemplateStore.MAX_PDF_BYTES+2) throw new Error('PDFは1書式20MBまでです。');
+    const pdf = await PdfUtils.loadPdf(PdfUtils.base64ToArrayBuffer(template.pdfBase64));
+    try {
+      if (pdf.numPages !== template.pages.length) throw new Error('PDFのページ数と配置情報が一致しません。');
+      for (let number=1; number<=pdf.numPages; number++) { const size=await PdfUtils.getPageSize(pdf,number); const page=template.pages[number-1]; if (Math.abs(size.widthPt-page.widthPt)>0.1 || Math.abs(size.heightPt-page.heightPt)>0.1 || !Number.isFinite(page.widthPt) || !Number.isFinite(page.heightPt)) throw new Error('PDFの寸法と配置情報が一致しません。'); }
+    } finally { pdf.destroy(); }
+    currentEditingTemplateId=null; currentPdfBase64=template.pdfBase64;
+    el.templateNameInput.value=template.name; el.templateVersionLabelInput.value=template.versionLabel || '';
+    q('template-signing-mode').value=template.signingMode || 'legacy'; q('template-require-additional-for-scribe').checked=!!template.requireAdditionalForScribe;
+    Forms.renderFieldEditPanel(el.fieldEditPanel, null); showScreen('template-editor'); await FieldEditor.loadFromTemplate(template); updateScribeAdditionalSetting(); updatePageIndicator(); showToast('編集中の書式を復元しました。編集後に保存してください。');
   }
 
   function updateEditorFieldSummary() {
@@ -4519,6 +4619,7 @@ const VoidFlow = (() => {
     q('template-require-additional-for-scribe').checked = true;
     updateScribeAdditionalSetting();
     el.pdfFileInput.value = '';
+    q('pdf-file-status').textContent='';
     Forms.renderFieldEditPanel(el.fieldEditPanel, null);
   }
 
@@ -4534,7 +4635,7 @@ const VoidFlow = (() => {
     backdrop.appendChild(box); document.body.appendChild(backdrop);
   }
 
-  function saveCurrentTemplate() {
+  async function saveCurrentTemplate() {
     const name = el.templateNameInput.value.trim();
     if (!name) { alert('書式名を入力してください'); return; }
     if (!currentPdfBase64) { alert('PDFを選択してください'); return; }
@@ -4552,22 +4653,23 @@ const VoidFlow = (() => {
     // 捕まえずに画面遷移まで進んでしまうと、実際には保存されていないのに保存完了したように
     // 見えてしまい、せっかく配置した署名欄の作業がまるごと消えてしまう
     let versionedFrom = null;
+    q('btn-save-template').disabled = true;
     try {
       if (currentEditingTemplateId) {
         const existing = TemplateStore.get(currentEditingTemplateId);
         const updated = Object.assign({}, existing, { name, versionLabel, pdfBase64: currentPdfBase64, pages, signingMode, requireAdditionalForScribe });
-        const saved = TemplateStore.saveEdit(updated);
+        const saved = await TemplateStore.saveEdit(updated);
         currentEditingTemplateId = saved.id;
         versionedFrom = saved.versionedFrom || null;
       } else {
         const created = Models.createTemplate({ name, versionLabel, pdfBase64: currentPdfBase64, pages, signingMode, requireAdditionalForScribe });
-        TemplateStore.saveNew(created);
+        await TemplateStore.saveNew(created);
         currentEditingTemplateId = created.id;
       }
     } catch (e) {
       alert(e.message);
-      return; // 画面遷移せず編集画面に留まる(作業中の内容はまだ手元にあるので、バックアップ等の対処後に再度保存できる)
-    }
+      return; // 保存失敗時は編集内容を画面に保持する。
+    } finally { q('btn-save-template').disabled = false; }
     if (versionedFrom) {
       showToast('署名実績があるため新版(v' + (versionedFrom + 1) + ')として保存しました', 4000);
     } else {
@@ -5783,6 +5885,7 @@ const VoidFlow = (() => {
       'ホームへ戻っただけなら「入力中の契約に戻る」で続けられます。再読み込みや端末の終了には備えられないため、区切りのよい時点で途中保存してください。',
       '「途中保存（暗号化）」で12文字以上のパスワードを二回入力し、「暗号化して保存」を押します。続けて「途中保存ファイルを端末へ保存」を押し、「契約途中保存_日時.json」が実際に保存されたことを確認します。中身は暗号化されており、パスワードなしでは復元できません。',
       '再開はホームの「途中保存ファイルから再開」。「契約途中保存」で始まるJSONファイルとパスワードを指定します。以前の.keiyakuファイルも読み込めます。ファイルアプリで直接開かず、このアプリで選択してください。最後に手動保存した時点から戻ります。未確定の手書き筆跡は保存されません。',
+      'PDFのページ数に固定制限はありません。1書式20MBまでで、保存できる総量は端末・ブラウザによって変わります。選択後にページ数・容量を表示します。保存に失敗したときは「編集中の書式をバックアップ」で退避でき、ホームの「バックアップから復元・追加」で編集を再開できます。ブラウザのデータを消すと書式も消えるため、別途バックアップを保管してください。',
       '別の端末でも書式を使う場合は「テンプレートをバックアップ」で必要な書式を保存し、その端末で「バックアップから復元・追加」を押します。これは署名途中の契約ではなく、未記入の書式のバックアップです。'
     ], note:'途中保存は自動ではありません。パスワードを忘れると復元できず、最後の保存以降の作業も復元できません。契約のPDF・記録・途中保存ファイルは、事業所の保管方法に沿って管理してください。'}
   ];
@@ -5909,7 +6012,7 @@ const VoidFlow = (() => {
     q('btn-nav-last-export').classList.remove('hidden');
     renderCompletedExport();
     try {
-      TemplateStore.markSigned(currentSigningTemplate.id);
+      await TemplateStore.markSigned(currentSigningTemplate.id);
     } catch (e) {
       console.error(e);
       alert('署名書類は作成できました。保存画面から保存してください。\n' +
@@ -6007,11 +6110,15 @@ const VoidFlow = (() => {
     document.body.appendChild(banner);
   }
 
-  function init() {
+  async function init() {
     const missingLibs = findMissingLibs();
     if (missingLibs.length > 0) {
       showLibMissingError(missingLibs);
       return;
+    }
+    try { await TemplateStore.init(); } catch(error) {
+      const warning = document.createElement('p'); warning.className = 'storage-startup-error'; warning.setAttribute('role','alert');
+      warning.textContent = '書式の保存領域を開けませんでした。既存データは削除していません。通常のブラウザで再読み込みしてください。 ' + error.message; document.body.prepend(warning); return;
     }
     Theme.init();
     el.templateList = q('template-list');
@@ -6090,26 +6197,15 @@ const VoidFlow = (() => {
     FieldEditor.attachDrawHandlers();
     Forms.renderFieldPalette(el.fieldPalette, (type) => FieldEditor.setArmedFieldType(type));
 
-    // PDFが大きすぎると、後で「テンプレートを保存」を押した時にlocalStorage容量超過で
-    // 失敗する(base64化すると元のファイルサイズの約1.3倍になる)。項目配置の作業が無駄に
-    // ならないよう、選んだ直後の時点で早めに警告する
-    const LARGE_PDF_WARN_BYTES = 3 * 1024 * 1024; // 3MB(base64後は約4MB)
-    function formatMb(bytes) { return (bytes / (1024 * 1024)).toFixed(1); }
-
     el.pdfFileInput.addEventListener('change', async () => {
       const file = el.pdfFileInput.files[0];
       if (!file) return;
       if (!confirm('テンプレートには未記入のPDF原本を使ってください。\nPDF全体がこの端末とバックアップに保存されます。実際の利用者の氏名・住所・署名が入っていないことを確認しましたか？')) { el.pdfFileInput.value = ''; return; }
-      if (file.size > LARGE_PDF_WARN_BYTES) {
-        const proceed = confirm(
-          'このPDFはサイズが大きいです（' + formatMb(file.size) + 'MB）。\n' +
-          'ブラウザの保存容量の上限に達し、テンプレートを保存できない可能性があります。\n' +
-          'このまま使いますか？（キャンセルすると別のPDFを選び直せます）'
-        );
-        if (!proceed) { el.pdfFileInput.value = ''; return; }
-      }
+      if (file.size > TemplateStore.MAX_PDF_BYTES) { q('pdf-file-status').textContent = '選択したPDFは20MBを超えています。PDFを軽量化してから選択してください。'; el.pdfFileInput.value=''; return; }
       showToast('PDFを読み込み中...', 15000);
       try {
+        const storage = await TemplateStore.getStorageInfo();
+        if (storage.estimate && Number.isFinite(storage.estimate.quota) && Number.isFinite(storage.estimate.usage) && file.size*1.5+1024*1024 > storage.estimate.quota-storage.estimate.usage) throw new Error('このPDFを保存するための容量が不足しています。不要な書式をバックアップして削除するか、PDFを軽量化してください。');
         const buffer = await file.arrayBuffer();
         currentPdfBase64 = PdfUtils.arrayBufferToBase64(buffer);
         await withTimeout(FieldEditor.loadPdfBytes(buffer), 20000, 'PDFの読み込みがタイムアウトしました');
@@ -6120,6 +6216,7 @@ const VoidFlow = (() => {
         alert(PDF_LOAD_ERROR_MESSAGE + '\n\n' + e.message);
         el.pdfFileInput.value = '';
         currentPdfBase64 = null;
+        q('pdf-file-status').textContent = e.message;
       }
     });
 
@@ -6129,6 +6226,7 @@ const VoidFlow = (() => {
     q('btn-zoom-out').addEventListener('click', () => FieldEditor.zoomOut());
     q('btn-fit-view').addEventListener('click', () => FieldEditor.fitToView(q('pdf-stage-wrap')));
     q('btn-save-template').addEventListener('click', saveCurrentTemplate);
+    q('btn-backup-editing-template').addEventListener('click', backupEditingTemplate);
     q('btn-preview-template').addEventListener('click', () => previewTemplate());
     q('template-signing-mode').addEventListener('change', () => {
       updateScribeAdditionalSetting();
@@ -6138,9 +6236,14 @@ const VoidFlow = (() => {
 
     q('btn-export-templates').addEventListener('click', openBackupSelectionModal);
     q('btn-import-templates').addEventListener('click', () => { if (confirm('書式を追加します。同じIDがあっても既存の書式は上書きしません。\nバックアップに個人情報が含まれる場合、この端末にも保存されます。取り込みますか？')) q('import-templates-input').click(); });
-    q('import-templates-input').addEventListener('change', () => {
+    q('import-templates-input').addEventListener('change', async () => {
       const file = q('import-templates-input').files[0];
       if (!file) return;
+      try {
+        if (file.size > 64*1024*1024) throw new Error('バックアップファイルは64MB以下にしてください。');
+        const data=JSON.parse(await file.text());
+        if(data && data.format==='keiyaku-template-draft') { await restoreEditingTemplate(data); q('import-templates-input').value=''; return; }
+      } catch(error) { q('import-templates-input').value=''; alert('読み込みに失敗しました: '+error.message); return; }
       ExportModule.importTemplatesBackup(file, (err, count) => {
         q('import-templates-input').value = '';
         if (err) { alert('読み込みに失敗しました: ' + err.message); return; }
@@ -6174,6 +6277,7 @@ const VoidFlow = (() => {
     renderHomeTemplateList();
     renderCloudDriveSection();
     showScreen('home');
+    document.body.dataset.appReady = 'true';
 
     if (!localStorage.getItem(WELCOME_SEEN_KEY)) showWelcomeOverlay();
 
