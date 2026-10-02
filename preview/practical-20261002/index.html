@@ -1306,11 +1306,17 @@ html[data-theme="dark"] .save-toast { background:#d9e7ef; color:#14212c; }
 html[data-theme="dark"] :is(.home-tools-title,.thumb-size-label,.case-list-empty) { color:#b8c9d5; }
 html[data-theme="dark"] :is(.signing-checkbox-row,.signing-doc-wrap) { background:#2b3d4b; color:#e2eaf0; }
 html[data-theme="dark"] .field-box-label { color:#244c68; background:#fff; }
+.signature-tools { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:12px 0 8px; }
+.signature-tools .signing-expand-toggle { margin:0 0 0 auto; }
+.signature-tools button { min-height:44px; }
+.signature-tools .signature-clear { background:transparent; color:#8a433a; }
+.signature-tools button:disabled { opacity:.5; cursor:not-allowed; }
+html[data-theme="dark"] .signature-tools .signature-clear { color:#ffc2b8; }
 
 </style>
 </head>
 <body>
-<div style="padding:8px 20px;background:#203e54;color:#dae9f0;border-bottom:1px solid #547182;font-size:12px;text-align:center">実務フロー検証版・ライト／ダーク切替｜架空の情報でお試しください。</div>
+<div style="padding:8px 20px;background:#203e54;color:#dae9f0;border-bottom:1px solid #547182;font-size:12px;text-align:center">実務フロー検証版・署名操作と案内を更新｜架空の情報でお試しください。</div>
   <header class="app-header">
     <div class="app-header-top">
       <h1>電子契約アプリ</h1>
@@ -2912,6 +2918,8 @@ const SignaturePad = (() => {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     let hasStroke = false;
     let activePointerType = null;
+    let strokes = [];
+    let currentStroke = null;
 
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
@@ -2960,6 +2968,7 @@ const SignaturePad = (() => {
       ctx.strokeStyle = '#2f3b52'; ctx.fillStyle = '#2f3b52';
       const pos = getPos(evt);
       lastX = pos.x; lastY = pos.y;
+      currentStroke = {width:ctx.lineWidth,points:[pos]}; strokes.push(currentStroke);
       updateBounds(pos.x, pos.y);
       ctx.beginPath();
       ctx.moveTo(pos.x, pos.y);
@@ -2975,6 +2984,7 @@ const SignaturePad = (() => {
       const pos = getPos(evt);
       const dx = pos.x - lastX, dy = pos.y - lastY;
       if (dx === 0 && dy === 0) return;
+      currentStroke.points.push(pos);
       pathLength += Math.sqrt(dx * dx + dy * dy);
       updateBounds(pos.x, pos.y);
       // 過去の全経路を毎回strokeすると筆記量に伴って負荷が増えるため差分だけ描く。
@@ -3000,6 +3010,7 @@ const SignaturePad = (() => {
       drawing = false;
       activePointerId = null;
       activePointerType = null;
+      currentStroke = null;
       if (evt && evt.type === 'pointercancel' && onInterrupted) onInterrupted();
       if (onStrokeChange) onStrokeChange(isValid());
     }
@@ -3030,10 +3041,35 @@ const SignaturePad = (() => {
       ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
       drawing = false;
       activePointerId = null;
+      activePointerType = null;
+      currentStroke = null; strokes = [];
       hasStroke = false;
       pathLength = 0;
       minX = Infinity; minY = Infinity; maxX = -Infinity; maxY = -Infinity;
       if (onStrokeChange) onStrokeChange(false);
+    }
+
+    // 通常の筆記は差分描画のまま。取り消し操作の時だけ残った筆跡を再描画する。
+    function undo() {
+      if (!strokes.length) return;
+      endStroke(); strokes.pop();
+      ctx.clearRect(0,0,canvasEl.width,canvasEl.height);
+      pathLength = 0; minX = Infinity; minY = Infinity; maxX = -Infinity; maxY = -Infinity;
+      hasStroke = strokes.length > 0;
+      for (const stroke of strokes) {
+        ctx.lineWidth = stroke.width; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.strokeStyle = '#2f3b52'; ctx.fillStyle = '#2f3b52';
+        const first = stroke.points[0];
+        ctx.beginPath(); ctx.arc(first.x,first.y,stroke.width/2,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(first.x,first.y); updateBounds(first.x,first.y);
+        for (let index=1; index<stroke.points.length; index++) {
+          const point = stroke.points[index], previous = stroke.points[index-1];
+          ctx.lineTo(point.x,point.y); updateBounds(point.x,point.y);
+          pathLength += Math.hypot(point.x-previous.x,point.y-previous.y);
+        }
+        ctx.stroke();
+      }
+      if (onStrokeChange) onStrokeChange(isValid());
     }
 
     // 描いた線の範囲だけを切り出して画像化する。パッド全体(余白だらけ)をそのまま
@@ -3053,7 +3089,7 @@ const SignaturePad = (() => {
       return cropCanvas.toDataURL('image/png');
     }
 
-    return { clear, isValid, toDataUrl, destroy, isDrawingWithPen: () => drawing && activePointerType === 'pen' };
+    return { clear, undo, canUndo: () => strokes.length > 0, isValid, toDataUrl, destroy, isDrawingWithPen: () => drawing && activePointerType === 'pen' };
   }
 
   return { create };
@@ -4636,7 +4672,7 @@ const VoidFlow = (() => {
       const session = SigningFlow.getSession();
       const recipientLine = session.recipientName
         ? '<p><strong>対象者: ' + escapeHtml(session.recipientName) + '様</strong></p>' : '';
-      const card = buildCard('内容の確認', recipientLine + '<p>以下の内容で契約を確定します。よろしければ「確定してPDFを作成」を押してください。</p>');
+      const card = buildCard('署名内容・交付方法の確認', recipientLine + '<p>以下の内容で契約を確定します。よろしければ「確定してPDFを作成」を押してください。</p>');
       if (session.eventLog.some(event => event.reason === 'additional_not_required')) {
         const note = document.createElement('p'); note.textContent = '追加署名：署名前に「今回は不要」と確認済み'; card.append(note);
       }
@@ -4857,7 +4893,7 @@ const VoidFlow = (() => {
         backdrop = document.createElement('div'); backdrop.className = 'modal-backdrop';
         const box = document.createElement('div'); box.className = 'signing-modal-box is-expanded final-preview';
         const title = document.createElement('h3'); title.textContent = '完成書面の確認（確定前）';
-        const note = document.createElement('p'); note.textContent = '氏名・住所・署名・チェックと印字の収まりを全ページ確認してください。確定時に署名完了時刻・音声記録が証跡へ反映されます。';
+        const note = document.createElement('p'); note.textContent = '氏名・住所・署名・チェックと印字の収まりを全ページ確認してください。確定時に署名完了時刻が記録ページへ反映されます。';
         const close = bigButton('戻る', () => { backdrop.remove(); doc.destroy(); }, true);
         const confirm = bigButton('印字内容を確認しました', () => {
           if (JSON.stringify(review) !== reviewKey) { alert('確認内容が変わりました。完成書面をもう一度表示してください。'); backdrop.remove(); doc.destroy(); return; }
@@ -4972,7 +5008,7 @@ const VoidFlow = (() => {
     const field = SigningFlow.getCurrentField();
     const progress = SigningFlow.getProgress();
 
-    const card = buildCard('内容のご確認とご署名',
+    const card = buildCard('書面を確認して署名してください',
       '<p class="signing-progress">署名 '+ progress.current + ' / '+ progress.total + '</p>' +
       '<p>契約内容をご確認いただき、下の書式内でハイライトされた署名欄をタップしてください。</p>');
 
@@ -5106,7 +5142,7 @@ const VoidFlow = (() => {
     box.className = 'signing-modal-box';
 
     const title = document.createElement('h3');
-    title.textContent = 'ご記入';
+    title.textContent = 'お名前を署名してください';
     box.appendChild(title);
 
     // 署名欄は役割をテンプレート側で固定しない設計のため、まず必ずどちらの立場で
@@ -5266,6 +5302,7 @@ const VoidFlow = (() => {
 
     function rebuildDynamicSections() {
       const role = currentRole();
+      title.textContent = role === 'family' && selectedCapacity === 'scribe' ? 'ご本人のお名前を代筆してください' : role === 'family' ? '代理人ご自身のお名前を署名してください' : role === 'recipient' ? 'ご本人のお名前を署名してください' : 'ご自身のお名前を署名してください';
       const addressFields = findTemplateFieldsForRole(role, ['address'], field.id);
       const relationshipFields = findTemplateFieldsForRole(role, ['relationship'], field.id);
       addressLabel.style.display = addressFields.length ? '' : 'none';
@@ -5320,7 +5357,12 @@ const VoidFlow = (() => {
     expandBtn.type = 'button';
     expandBtn.className = 'tool-button-small signing-expand-toggle';
     expandBtn.textContent = '⤢ 大きく書く';
-    box.appendChild(expandBtn);
+    const penTools = document.createElement('div'); penTools.className = 'signature-tools';
+    const undoBtn = document.createElement('button'); undoBtn.type = 'button'; undoBtn.className = 'tool-button-small'; undoBtn.textContent = '1画戻す'; undoBtn.disabled = true;
+    const clearBtn = document.createElement('button'); clearBtn.type = 'button'; clearBtn.className = 'tool-button-small signature-clear'; clearBtn.textContent = '全消去'; clearBtn.disabled = true;
+    undoBtn.addEventListener('click', () => modalPadInstance.undo());
+    clearBtn.addEventListener('click', () => { if (confirm('この欄の手書き署名をすべて消しますか？')) modalPadInstance.clear(); });
+    penTools.append(undoBtn,clearBtn,expandBtn); box.append(penTools);
 
     const handwritingInstruction = document.createElement('p');
     handwritingInstruction.className = 'side-panel-hint';
@@ -5350,7 +5392,7 @@ const VoidFlow = (() => {
 
     let isExpanded = false;
     expandBtn.addEventListener('click', () => {
-      if (modalPadInstance.isValid() && !confirm('拡大すると今描いた署名は消えます。よろしいですか？')) return;
+      if (modalPadInstance.canUndo() && !confirm('拡大すると今描いた署名は消えます。よろしいですか？')) return;
       isExpanded = !isExpanded;
       box.classList.toggle('is-expanded', isExpanded);
       expandBtn.textContent = isExpanded ? '⤢ 元のサイズに戻す' : '⤢ 大きく書く';
@@ -5364,6 +5406,7 @@ const VoidFlow = (() => {
     // 署名・代理権限チェック・確認チェック欄が全て揃うまで確定ボタンを押せないようにする
     function updateConfirmEnabled() {
       const role = currentRole();
+      undoBtn.disabled = !modalPadInstance.canUndo(); clearBtn.disabled = !modalPadInstance.canUndo();
       const missing = [];
       if (!nameInput.value.trim()) missing.push('実際に記入する方のお名前');
       if (!modalPadInstance.isValid()) missing.push('手書き署名（点だけ・ごく小さい線では確定できません）');
@@ -5423,11 +5466,9 @@ const VoidFlow = (() => {
       renderSigningStep();
     });
     confirmBtn.disabled = true;
-    const redoBtn = bigButton('やり直す', () => modalPadInstance.clear(), true);
-    const cancelBtn = bigButton('キャンセル', closeModal, true);
+    const cancelBtn = bigButton('書面に戻る', closeModal, true);
 
     box.append(missingReasons,confirmBtn);
-    box.appendChild(redoBtn);
     box.appendChild(cancelBtn);
     backdrop.appendChild(box);
     // 手のひらが外側に触れても署名を破棄しない。閉じる操作はキャンセルボタンに限定。
@@ -5547,7 +5588,7 @@ const VoidFlow = (() => {
       ['設定した全員の署名が必要','配置した署名欄すべてを順番に記入する書式。']
     ], note:'「本人名を家族が代筆する場合は、続けて家族本人の署名も必須にする」を使う場合は、署名欄を二つ配置します。以前のテンプレートは設定が維持されるため、編集画面で署名方法を確認してください。'},
     {title:'5. 本人自署・家族の代筆・代理署名', intro:'ホームで書式の「これで署名する」を押します。「署名前の確認（事業者用）」で、利用者本人の氏名と、今回記入する方を確認します。利用者住所欄がある書式では、本人の住所も入力します。', steps:[
-      '本人が自署する場合：本人を選び、端末を渡します。書面を確認し、強調された署名欄を押して、本人がご自身の名前を書きます。',
+      '本人が自署する場合：本人を選び、端末を渡します。書面を確認し、強調された署名欄を押して、本人がご自身の名前を書きます。署名枠の上の「1画戻す」で最後の一筆を取り消し、「全消去」でこの欄の筆跡をすべて消せます。',
       '本人の意思に基づく家族の代筆：家族と代筆を選びます。入力欄には実際に代筆する家族の名前、手書き欄には本人の名前を記入します。本人の意思に基づく記入であることを確認します。',
       '代理人として署名する場合：家族と代理署名を選びます。入力欄・手書き欄には代理人自身の名前を記入し、代理権の確認と、その根拠を記録します。根拠欄には、確認した委任状や成年後見人としての立場などを具体的に書きます。',
       '住所は「住所」と任意の「建物名・部屋番号」に分けて入力します。PDFでは同じ住所枠にまとめて印字されます。本人と同じ住所の場合は、表示されるコピー操作を使えます。',
