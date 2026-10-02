@@ -1313,10 +1313,13 @@ html[data-theme="dark"] .field-box-label { color:#244c68; background:#fff; }
 .signature-tools button:disabled { opacity:.5; cursor:not-allowed; }
 html[data-theme="dark"] .signature-tools .signature-clear { color:#ffc2b8; }
 
+.field-signature-preview { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; pointer-events:none; transform-origin:center; }
+#signature-test-canvas { display:block; width:100%; height:250px; background:#fff; border:2px solid #647d91; border-radius:8px; touch-action:none; user-select:none; -webkit-user-select:none; }
+
 </style>
 </head>
 <body>
-<div style="padding:8px 20px;background:#203e54;color:#dae9f0;border-bottom:1px solid #547182;font-size:12px;text-align:center">実務フロー検証版・日付欄の文字サイズと見本を改善｜架空の情報でお試しください。</div>
+<div style="padding:8px 20px;background:#203e54;color:#dae9f0;border-bottom:1px solid #547182;font-size:12px;text-align:center">実務フロー検証版・署名の試し書きとテンプレート設定を改善｜架空の情報でお試しください。</div>
   <header class="app-header">
     <div class="app-header-top">
       <h1>電子契約アプリ</h1>
@@ -1404,6 +1407,7 @@ html[data-theme="dark"] .signature-tools .signature-clear { color:#ffc2b8; }
             本人名を家族が代筆する場合は、続けて家族本人の署名も必須にする
           </label>
           <p id="scribe-additional-hint" class="side-panel-hint">「必要な場合だけ追加の人も署名」を選んだ書式で使います。本人が自署した場合は、追加署名を省略できます。</p>
+          <p id="template-field-summary" class="side-panel-hint" role="status"></p>
           <p class="side-panel-hint">複数人の場合、署名順が先頭の欄が本人またはご家族用です。それ以降の欄は追加署名用です。各署名欄に「家族の同意」など目的のラベルを付けてください。</p>
           <label class="field-label">書式名（必須）
             <input type="text" id="template-name-input" placeholder="例：居宅介護支援 重要事項説明書" />
@@ -1414,13 +1418,14 @@ html[data-theme="dark"] .signature-tools .signature-clear { color:#ffc2b8; }
           <button id="btn-save-template" class="tool-button tool-button-primary" type="button">テンプレートを保存</button>
           <details>
             <summary>試し印字の内容</summary>
-            <label class="field-label">見本の氏名<input id="preview-name" value="山田 太郎" /></label>
+            <label class="field-label">1人目の見本氏名<input id="preview-name" value="山田 太郎" /></label>
+            <label class="field-label">2人目以降の見本氏名<input id="preview-additional-name" value="山田 花子" /></label>
             <label class="field-label">見本の利用者住所<input id="preview-recipient-address" value="東京都千代田区丸の内一丁目2番3号" /></label>
             <label class="field-label">見本の署名者住所<input id="preview-address" value="東京都千代田区丸の内一丁目2番3号 ケアマンション101号室" /></label>
-            <label class="field-label">記入する方<select id="preview-role"><option value="recipient">利用者本人</option><option value="family">ご家族（代筆・代理）</option></select></label>
+            <label class="field-label">1人目の記入者<select id="preview-role"><option value="recipient">利用者本人</option><option value="family">ご家族（代筆・代理）</option></select></label>
           </details>
           <button id="btn-preview-template" class="tool-button" type="button">試し印字を確認</button>
-          <p class="side-panel-hint">見本PDFで文字サイズ・住所の折り返し・署名の大きさを確認できます。実際の氏名・住所の長さでもお確かめください。</p>
+          <p class="side-panel-hint">署名欄を選び「この欄で試し書き」で実際の筆跡を確認できます。見本PDFでは文字サイズ・住所の折り返し・署名の大きさを確認できます。実際の氏名・住所の長さでもお確かめください。</p>
         </aside>
         <div class="canvas-area">
           <div class="canvas-overlay-toolbars">
@@ -1736,6 +1741,7 @@ const Models = (() => {
       const label = (index + 1) + 'ページ目「' + (field.label || labels[field.type] || field.type) + '」';
       if (!field.id || ids.has(field.id)) errors.push(label + 'の項目IDが重複または欠落しています。');
       ids.add(field.id);
+      if (field.type === 'declaration_checkbox' && field.checkPrintStyle && !['check','confirmed'].includes(field.checkPrintStyle)) errors.push(label + 'のチェック印字形式が未対応です。');
       if (!Object.values(FIELD_TYPES).includes(field.type)) errors.push(label + 'の項目の種類が未対応です。');
       if (field.assignedRole && !['either','recipient','family','additional'].includes(field.assignedRole)) errors.push(label + 'の表示条件が正しくありません。');
       if (field.type === 'signature' && (!Number.isInteger(field.signOrder) || field.signOrder < 1)) errors.push(label + 'の署名順を正の整数にしてください。');
@@ -2192,7 +2198,18 @@ const FieldEditor = (() => {
   let onFieldSelected = null; // (field) => void
   let onPagesChanged = null; // () => void  (フィールドの追加・移動・削除の度に呼ぶ)
 
+  const signaturePreviews = new Map();
+  let signatureSample = null;
+  function getSignatureSample() {
+    if (signatureSample) return signatureSample;
+    const canvas = document.createElement('canvas'); canvas.width = 240; canvas.height = 60;
+    const context = canvas.getContext('2d'); context.strokeStyle = '#25364a'; context.lineWidth = 3; context.lineCap = 'round';
+    context.stroke(new Path2D('M10 42 Q25 3 35 20 T52 40 Q66 12 72 36 L85 23 M99 13 L90 47 L117 26 L104 45 M139 9 Q126 48 147 39 L171 17 L158 48 Q184 21 187 36 T225 28'));
+    signatureSample = canvas.toDataURL(); return signatureSample;
+  }
   let showPrintPreview = true;
+  function setSignaturePreview(id, image) { signaturePreviews.set(id, image); renderFieldBoxes(); }
+  function getSignaturePreview(id) { return signaturePreviews.get(id); }
   function setPrintPreviewVisible(visible) { showPrintPreview = visible; renderFieldBoxes(); }
 
   function init(opts) {
@@ -2207,6 +2224,7 @@ const FieldEditor = (() => {
   async function loadPdfBytes(arrayBuffer) {
     pdfDoc = await PdfUtils.loadPdf(arrayBuffer);
     pages = [];
+    signaturePreviews.clear();
     for (let i = 1; i <= pdfDoc.numPages; i++) {
       const size = await PdfUtils.getPageSize(pdfDoc, i);
       pages.push({ widthPt: size.widthPt, heightPt: size.heightPt, fields: [] });
@@ -2224,6 +2242,8 @@ const FieldEditor = (() => {
       heightPt: p.heightPt,
       fields: p.fields.slice(),
     }));
+    signaturePreviews.clear();
+    normalizeSignatureOrder();
     currentPageIndex = 0;
     await renderCurrentPage();
   }
@@ -2272,6 +2292,16 @@ const FieldEditor = (() => {
     armedFieldType = type;
   }
 
+  function normalizeSignatureOrder() {
+    getSignatureFields().forEach((field, index) => { field.signOrder = index + 1; });
+  }
+  function setSignatureOrder(field, position) {
+    const ordered = getSignatureFields().filter(item => item.id !== field.id);
+    ordered.splice(Math.max(0, Math.min(ordered.length, position - 1)), 0, field);
+    ordered.forEach((item, index) => { item.signOrder = index + 1; });
+    renderFieldBoxes();
+  }
+
   const FIELD_TYPE_LABELS = {
     signature: '署名欄',
     date: '日付欄',
@@ -2291,6 +2321,7 @@ const FieldEditor = (() => {
   };
 
   function getPrintPreviewText(field) {
+    if (field.type === 'declaration_checkbox' && field.checkPrintStyle === 'check') return '✓';
     if (field.type !== 'date') return PRINT_PREVIEW_TEXT[field.type] || '印字見本';
     if (field.dateFormat === 'reiwa') return '令和8年9月23日';
     if (field.dateFormat === 'gregorian_kanji') return '2026年9月23日';
@@ -2345,10 +2376,17 @@ const FieldEditor = (() => {
 
       const labelSpan = document.createElement('span');
       labelSpan.className = 'field-box-label';
-      labelSpan.textContent = (field.label || FIELD_TYPE_LABELS[field.type] || field.type) +
+      labelSpan.textContent = (isSignature ? '署名欄 ' + field.signOrder + (field.label ? '：' + field.label : '') : field.label || FIELD_TYPE_LABELS[field.type] || field.type) +
         (groupText ? '（' + groupText + '）' : '');
       box.appendChild(labelSpan);
 
+      if (isSignature && showPrintPreview) {
+        const image = document.createElement('img'); image.className = 'field-signature-preview';
+        image.alt = signaturePreviews.has(field.id) ? '試し書きした署名' : '手書き署名の見本';
+        image.src = signaturePreviews.get(field.id) || getSignatureSample();
+        image.style.transform = 'scale(' + (field.signatureScale || 100) / 100 + ')';
+        box.appendChild(image); labelSpan.textContent += signaturePreviews.has(field.id) ? '｜試し書き' : '｜手書き見本';
+      }
       if (!isSignature && showPrintPreview) {
         const printPreview = document.createElement('span');
         printPreview.className = 'field-box-print-preview';
@@ -2538,7 +2576,7 @@ const FieldEditor = (() => {
       const field = Models.createField({
         type: armedFieldType,
         x: rect.x, y: rect.y, width: rect.width, height: rect.height,
-        signOrder: page.fields.length + 1,
+        signOrder: getSignatureFields().length + 1,
       });
       // 署名欄が1つしか無いテンプレートが標準形なので、その場合だけ自動で紐付ける
       // (手間ゼロにする)。署名欄が2つ以上ある場合は事業所に明示的に選んでもらう
@@ -2556,6 +2594,8 @@ const FieldEditor = (() => {
   function removeField(fieldId) {
     const page = pages[currentPageIndex];
     page.fields = page.fields.filter(f => f.id !== fieldId);
+    signaturePreviews.delete(fieldId);
+    normalizeSignatureOrder();
     renderFieldBoxes();
     if (onPagesChanged) onPagesChanged();
   }
@@ -2564,7 +2604,7 @@ const FieldEditor = (() => {
     init, loadPdfBytes, loadFromTemplate,
     zoomIn, zoomOut, fitToView, goToPage,
     getPageCount, getCurrentPageIndex, getPages, getSignatureFields,
-    setArmedFieldType, attachDrawHandlers, renderFieldBoxes, removeField, setPrintPreviewVisible,
+    setSignatureOrder, setSignaturePreview, getSignaturePreview, getSignatureSample, setArmedFieldType, attachDrawHandlers, renderFieldBoxes, removeField, setPrintPreviewVisible,
   };
 })();
 
@@ -2679,6 +2719,14 @@ const Forms = (() => {
     // declaration_checkbox(確認チェック欄)だけは、紐付いた署名欄の中でも
     // 「誰が署名した時に表示するか」をさらに絞れる(例：代理権限確認は家族の時だけ等)
     if (field.type === 'declaration_checkbox') {
+      const printLabel = document.createElement('label'); printLabel.className = 'field-label'; printLabel.textContent = 'PDFに印字する内容';
+      const printSelect = document.createElement('select');
+      [['check','✓ のみ（小さなチェック枠用）'],['confirmed','✓ 確認済み（文字の枠用）']].forEach(([value,text]) => { const option = document.createElement('option'); option.value=value; option.textContent=text; printSelect.appendChild(option); });
+      printSelect.value = field.checkPrintStyle || 'confirmed';
+      printSelect.addEventListener('change', () => { field.checkPrintStyle = printSelect.value; callbacks.onChange(); });
+      printLabel.appendChild(printSelect); container.appendChild(printLabel);
+      const explanation = document.createElement('p'); explanation.className = 'side-panel-hint';
+      explanation.textContent = '契約時にチェックした場合だけ印字します。「確認する内容」には、確認してもらう文を入力してください。同じ文の項目は契約時に1つのチェックにまとめます。別々の同意には、それぞれ異なる文を設定してください。'; container.appendChild(explanation);
       const roleLabel = document.createElement('label');
       roleLabel.className = 'field-label';
       roleLabel.textContent = '表示条件（誰が署名した時に確認させるか）';
@@ -2702,11 +2750,11 @@ const Forms = (() => {
     {
       const labelLabel = document.createElement('label');
       labelLabel.className = 'field-label';
-      labelLabel.textContent = '項目の表示ラベル';
+      labelLabel.textContent = field.type === 'declaration_checkbox' ? '確認する内容（契約時に表示）' : '項目の表示ラベル';
       const labelInput = document.createElement('input');
       labelInput.type = 'text';
       labelInput.value = field.label || '';
-      labelInput.placeholder = field.type === 'signature' ? '例：利用者の契約同意、家族の確認' : '例：利用者の氏名';
+      labelInput.placeholder = field.type === 'declaration_checkbox' ? '例：重要事項の説明を受け、内容に同意しました' : field.type === 'signature' ? '例：利用者の契約同意、家族の確認' : '例：利用者の氏名';
       labelInput.addEventListener('input', () => {
         field.label = labelInput.value;
         callbacks.onChange();
@@ -2783,12 +2831,16 @@ const Forms = (() => {
       scaleInput.min = '50';
       scaleInput.max = '200';
       scaleInput.value = field.signatureScale || 100;
-      scaleInput.addEventListener('input', () => {
-        field.signatureScale = parseInt(scaleInput.value, 10) || 100;
-        callbacks.onChange();
-      });
+      const scaleSlider = document.createElement('input'); scaleSlider.type = 'range'; scaleSlider.min = '50'; scaleSlider.max = '200'; scaleSlider.step = '1'; scaleSlider.value = scaleInput.value;
+      scaleSlider.setAttribute('aria-label','署名の表示サイズを調整');
+      function setSignatureSize(value) {
+        const size = Number(value); if (!Number.isFinite(size) || size < 50 || size > 200) return;
+        field.signatureScale = size; scaleInput.value = size; scaleSlider.value = size; callbacks.onChange();
+      }
+      scaleInput.addEventListener('input', () => setSignatureSize(scaleInput.value));
+      scaleSlider.addEventListener('input', () => setSignatureSize(scaleSlider.value));
       scaleLabel.appendChild(scaleInput);
-      container.appendChild(scaleLabel);
+      container.append(scaleLabel,scaleSlider);
       const hint = document.createElement('p');
       hint.className = 'side-panel-hint';
       hint.textContent = '100%を超えると枠からはみ出します。隣の文字との重なりを試し印字で確認してください。';
@@ -2801,14 +2853,20 @@ const Forms = (() => {
       orderLabel.textContent = '署名する順番';
       const orderInput = document.createElement('input');
       orderInput.type = 'number';
-      orderInput.min = '1';
+      orderInput.min = '1'; orderInput.max = String(signatureFields.length);
       orderInput.value = field.signOrder;
       orderInput.addEventListener('input', () => {
-        field.signOrder = parseInt(orderInput.value, 10) || 1;
-        callbacks.onChange();
+        const position = Number(orderInput.value);
+        if (!Number.isInteger(position) || position < 1 || position > signatureFields.length) return;
+        callbacks.onOrderChange(field, position);
       });
       orderLabel.appendChild(orderInput);
       container.appendChild(orderLabel);
+      const test = document.createElement('button'); test.type = 'button'; test.className = 'tool-button';
+      test.textContent = 'この欄で試し書き'; test.addEventListener('click', () => callbacks.onSignatureTest(field));
+      container.appendChild(test);
+      const testHint = document.createElement('p'); testHint.className = 'side-panel-hint';
+      testHint.textContent = '実際に書いた筆跡を、この枠と完成PDFの見本で確認します。筆跡はテンプレートに保存されません。'; container.appendChild(testHint);
     }
 
     const requiredRow = document.createElement('label');
@@ -3640,7 +3698,7 @@ const PdfWriter = (() => {
         else if (textField.type === 'relationship') drawFieldText(textPdfPage, font, textField, signer.relationship || '');
         else if (textField.type === 'address') drawFieldText(textPdfPage, font, textField, Models.fullAddress(signer.address,signer.building));
         else if (textField.type === 'date') drawFieldText(textPdfPage, font, textField, formatDate(new Date(signer.signedAt), textField.dateFormat));
-        else if (textField.type === 'declaration_checkbox' && (options && options.preview || (signer.confirmedDeclarationIds || []).includes(textField.id) || (!signer.confirmedDeclarationIds && (signer.confirmedDeclarations || []).includes(textField.label)))) drawFieldText(textPdfPage, font, textField, '✓ 確認済み');
+        else if (textField.type === 'declaration_checkbox' && (options && options.preview || (signer.confirmedDeclarationIds || []).includes(textField.id) || (!signer.confirmedDeclarationIds && (signer.confirmedDeclarations || []).includes(textField.label)))) drawFieldText(textPdfPage, font, textField, textField.checkPrintStyle === 'check' ? '✓' : '✓ 確認済み');
       });
     }
 
@@ -4358,12 +4416,23 @@ const VoidFlow = (() => {
   // ===== テンプレート編集画面 =====
   function updatePageIndicator() {
     el.pageIndicator.textContent = (FieldEditor.getCurrentPageIndex() + 1) + ' / ' + FieldEditor.getPageCount();
+    updateEditorFieldSummary();
+  }
+
+  function updateEditorFieldSummary() {
+    const fields = FieldEditor.getPages().flatMap(page => page.fields);
+    const count = fields.filter(field => field.type === 'signature').length;
+    const checks = fields.filter(field => field.type === 'declaration_checkbox').length;
+    let text = '書式全体の署名欄：' + count + 'つ ／ 確認チェック：' + checks + 'つ（署名者の人数には含みません）。';
+    if (count > 1 && q('template-signing-mode').value === 'single') text += ' 署名欄が複数あるため、署名方法を「必要な場合だけ追加の人も署名」または「全員が署名する」に変更してください。';
+    q('template-field-summary').textContent = text;
   }
 
   function updateScribeAdditionalSetting() {
     const visible = q('template-signing-mode').value === 'optional';
     q('scribe-additional-setting').style.display = visible ? '' : 'none';
     q('scribe-additional-hint').style.display = visible ? '' : 'none';
+    updateEditorFieldSummary();
   }
 
   async function openTemplateForEditing(id) {
@@ -4401,6 +4470,18 @@ const VoidFlow = (() => {
     Forms.renderFieldEditPanel(el.fieldEditPanel, null);
   }
 
+  function chooseSigningModeBeforeSave(count) {
+    const backdrop = document.createElement('div'); backdrop.className = 'modal-backdrop';
+    const box = document.createElement('div'); box.className = 'signing-modal-box';
+    const title = document.createElement('h3'); title.textContent = '署名欄が' + count + 'つあります。署名方法を選んでください';
+    const note = document.createElement('p'); note.textContent = '現在の設定は「1人で完結する」です。確認チェックの数とは関係ありません。追加の署名欄を使う条件を選ぶと、その設定で保存します。';
+    const choose = mode => { q('template-signing-mode').value = mode; updateScribeAdditionalSetting(); backdrop.remove(); saveCurrentTemplate(); };
+    const optionalNote = document.createElement('p'); optionalNote.className = 'side-panel-hint';
+    optionalNote.textContent = '本人の署名だけで完結でき、追加署名が必要な場合だけ次の欄を使います。' + (q('template-require-additional-for-scribe').checked ? '現在の設定では、家族が本人名を代筆した場合は家族本人の追加署名も必要です。' : '');
+    box.append(title,note,bigButton('必要な場合だけ追加の人も署名して保存', () => choose('optional')),optionalNote,bigButton('全員の署名を必須にして保存', () => choose('all')),bigButton('編集に戻る', () => backdrop.remove(),true));
+    backdrop.appendChild(box); document.body.appendChild(backdrop);
+  }
+
   function saveCurrentTemplate() {
     const name = el.templateNameInput.value.trim();
     if (!name) { alert('書式名を入力してください'); return; }
@@ -4409,6 +4490,8 @@ const VoidFlow = (() => {
     const versionLabel = el.templateVersionLabelInput.value.trim();
 
     const signingMode = q('template-signing-mode').value;
+    const signatureCount = pages.flatMap(page => page.fields).filter(field => field.type === 'signature').length;
+    if (signingMode === 'single' && signatureCount > 1) { chooseSigningModeBeforeSave(signatureCount); return; }
     const requireAdditionalForScribe = signingMode === 'optional' && q('template-require-additional-for-scribe').checked;
     const errors = Models.validateTemplate({ pages, signingMode, requireAdditionalForScribe });
     if (errors.length) { alert('保存前に修正してください。\n' + errors.join('\n')); return; }
@@ -4442,7 +4525,28 @@ const VoidFlow = (() => {
     renderHomeTemplateList();
   }
 
-  async function previewTemplate() {
+  function openSignatureTest(field) {
+    const backdrop = document.createElement('div'); backdrop.className = 'modal-backdrop';
+    const box = document.createElement('div'); box.className = 'signing-modal-box';
+    const title = document.createElement('h3'); title.textContent = '署名欄 ' + field.signOrder + ' の記入テスト';
+    const note = document.createElement('p'); note.textContent = '架空のお名前などで試し書きしてください。「書面で確認」で、この枠へ配置した結果を確認できます。契約やテンプレートには保存されません。';
+    const tools = document.createElement('div'); tools.className = 'signature-tools';
+    const canvas = document.createElement('canvas'); canvas.id = 'signature-test-canvas'; canvas.width = 700; canvas.height = 250;
+    const status = document.createElement('p'); status.setAttribute('role','status');
+    let pad;
+    const close = () => { pad.destroy(); backdrop.remove(); };
+    const check = bigButton('書面で確認', () => {
+      FieldEditor.setSignaturePreview(field.id, pad.toDataUrl()); close(); previewTemplate(field.id);
+    }); check.disabled = true;
+    const undo = bigButton('1画戻す', () => pad.undo(), true);
+    const clear = bigButton('全消去', () => { if (confirm('試し書きをすべて消しますか？')) pad.clear(); }, true);
+    tools.append(undo,clear); box.append(title,note,tools,canvas,status,check,bigButton('閉じる',close,true));
+    backdrop.appendChild(box); document.body.appendChild(backdrop);
+    pad = SignaturePad.create(canvas, valid => { check.disabled = !valid; undo.disabled = clear.disabled = !pad.canUndo(); status.textContent = valid ? '書面での表示を確認できます。' : '枠内に試し書きしてください。点だけ・ごく小さい線では確認できません。'; });
+    undo.disabled = clear.disabled = true;
+  }
+
+  async function previewTemplate(targetFieldId) {
     if (!currentPdfBase64) { alert('先にPDFを選択してください。'); return; }
     const button = q('btn-preview-template');
     button.disabled = true;
@@ -4451,23 +4555,21 @@ const VoidFlow = (() => {
     try {
       // 見本生成は本番の署名セッション・テンプレート保存を変更しない。
       const template = Models.createTemplate({ name: '印字見本', pdfBase64: currentPdfBase64,
-        signingMode: q('template-signing-mode').value,
-        requireAdditionalForScribe: q('template-signing-mode').value === 'optional' && q('template-require-additional-for-scribe').checked,
+        // 配置の見本は人数設定の途中でも確認可能にする。実際の書式の署名方法は変更しない。
+        signingMode: 'legacy', requireAdditionalForScribe: false,
         pages: JSON.parse(JSON.stringify(FieldEditor.getPages())) });
       const name = q('preview-name').value.trim() || '山田 太郎';
       const role = q('preview-role').value;
-      const canvas = document.createElement('canvas');
-      canvas.width = 400; canvas.height = 90;
-      const ctx = canvas.getContext('2d');
-      ctx.font = '48px sans-serif'; ctx.fillText('署名見本', 4, 65);
+      const sampleSignature = FieldEditor.getSignatureSample();
       const session = Models.createSigningSession({ recipientName: role === 'recipient' ? name : '利用者 見本', recipientAddress: q('preview-recipient-address').value, status: 'completed',
         completedAt: new Date().toISOString(), templateVersion: template.version });
-      const signatures = template.pages.flatMap(page => page.fields).filter(field => field.type === 'signature');
+      const signatures = template.pages.flatMap(page => page.fields).filter(field => field.type === 'signature').sort((a,b) => a.signOrder - b.signOrder);
       session.signers = signatures.map((field, index) => Models.createSigner({
-        fieldId: field.id, role, order: index + 1, typedName: name,
-        address: q('preview-address').value, relationship: role === 'family' ? '長男' : '',
+        fieldId: field.id, role: index === 0 ? role : 'additional', order: index + 1,
+        typedName: index === 0 ? name : q('preview-additional-name').value.trim() || '山田 花子',
+        address: q('preview-address').value, relationship: index > 0 || role === 'family' ? '長女' : '',
         declarationChecked: role === 'family', signedAt: session.completedAt,
-        signatureImageDataUrl: canvas.toDataURL(),
+        signatureImageDataUrl: FieldEditor.getSignaturePreview(field.id) || sampleSignature,
       }));
       const bytes = await PdfWriter.buildSignedPdf(template, session, { preview: true });
       previewDoc = await PdfUtils.loadPdf(bytes.slice().buffer);
@@ -4477,12 +4579,14 @@ const VoidFlow = (() => {
       box.className = 'signing-modal-box is-expanded';
       const title = document.createElement('h3'); title.textContent = '試し印字（見本）';
       const note = document.createElement('p');
-      note.textContent = '枠内の印字見本はサイズ感の目安です。設定した文字サイズ・住所の折り返し・実際のPDF出力を確認してください。署名画像は見本です。';
+      note.textContent = targetFieldId ? '試し書きした筆跡を、本番と同じ処理でこのページに配置しました。大きさや位置をご確認ください。閉じると枠のサイズを調整し、再度「試し印字を確認」で見られます。' : '設定した文字サイズ・住所の折り返し・署名の位置をPDFで確認してください。試し書きした欄にはその筆跡、それ以外の署名欄には見本を表示します。';
       const close = bigButton('閉じる', () => { backdrop.remove(); previewDoc.destroy(); }, true);
       const save = bigButton('見本PDFを保存', () => ExportModule.downloadBlob(bytes, '契約書_印字見本.pdf', 'application/pdf'), true);
       box.append(title, note, close, save);
       backdrop.append(box); document.body.append(backdrop);
+      const targetPage = targetFieldId ? template.pages.findIndex(page => page.fields.some(field => field.id === targetFieldId)) + 1 : 0;
       for (let number = 1; number <= previewDoc.numPages; number++) {
+        if (targetPage && number !== targetPage) continue;
         if (!backdrop.isConnected) break;
         const pageCanvas = document.createElement('canvas');
         pageCanvas.style.cssText = 'display:block;max-width:100%;height:auto;margin-top:16px;border:1px solid #bbb';
@@ -5585,7 +5689,7 @@ const VoidFlow = (() => {
       '左の「手書き署名」を押してから、PDFの署名する場所をドラッグし、四角い枠を描きます。枠を選ぶと移動・サイズ調整・項目設定ができます。',
       '住所や日付など、書面に必要な項目を同じ方法で配置します。氏名・住所などがどの署名欄に対応するか、設定を確認してください。',
       '文字の枠を選び、文字サイズのバーまたは数値で調整します。枠内の「印字見本」は架空の例で、契約時には入力内容が入ります。見本は表示を切り替えられます。',
-      '複数ページの書面は「次のページ」で移動し、必要なページにも枠を配置します。書式名と署名方法を設定し、左パネル下部の「テンプレートを保存」を押します。「試し印字を確認」で印字位置も確認してください。'
+      '複数ページの書面は「次のページ」で移動し、必要なページにも枠を配置します。書式名と署名方法を設定し、左パネル下部の「テンプレートを保存」を押します。署名欄は設定パネルの「この欄で試し書き」から記入し、「書面で確認」で配置結果を確認できます。テストの筆跡は書式に保存されません。「試し印字を確認」では全体の印字位置も確認してください。'
     ], note:'テンプレートにはPDF全体が保存されます。実際の利用者名や署名が入ったPDFは原本として使わないでください。印字が収まらない場合は、枠を広げる・高さを増やす・文字サイズを調整します。'},
     {title:'3. 署名欄と氏名・住所欄の使い分け', rows:[
       ['手書き署名','ペンや指で名前を書く場所。氏名を自署する枠が署名欄を兼ねる書面では、この項目を使います。'],
@@ -5911,6 +6015,8 @@ const VoidFlow = (() => {
         signatureFields: FieldEditor.getSignatureFields(),
         signingMode: q('template-signing-mode').value,
         onChange: () => FieldEditor.renderFieldBoxes(),
+        onOrderChange: (item, position) => { FieldEditor.setSignatureOrder(item, position); },
+        onSignatureTest: openSignatureTest,
         // 「どの署名欄の項目か」の選択直後は、枠だけでなく警告文の表示も
         // 最新化したいのでパネルごと作り直す(selectは再描画してもフォーカスを失わない)
         onLinkChange: () => { FieldEditor.renderFieldBoxes(); openFieldEditPanel(field); },
@@ -5923,7 +6029,7 @@ const VoidFlow = (() => {
       overlayEl: q('field-overlay'),
       zoomLabelEl: q('zoom-level'),
       onFieldSelected: openFieldEditPanel,
-      onPagesChanged: () => {},
+      onPagesChanged: updateEditorFieldSummary,
     });
     FieldEditor.attachDrawHandlers();
     Forms.renderFieldPalette(el.fieldPalette, (type) => FieldEditor.setArmedFieldType(type));
@@ -5967,7 +6073,7 @@ const VoidFlow = (() => {
     q('btn-zoom-out').addEventListener('click', () => FieldEditor.zoomOut());
     q('btn-fit-view').addEventListener('click', () => FieldEditor.fitToView(q('pdf-stage-wrap')));
     q('btn-save-template').addEventListener('click', saveCurrentTemplate);
-    q('btn-preview-template').addEventListener('click', previewTemplate);
+    q('btn-preview-template').addEventListener('click', () => previewTemplate());
     q('template-signing-mode').addEventListener('change', () => {
       updateScribeAdditionalSetting();
       Forms.renderFieldEditPanel(el.fieldEditPanel, null);
