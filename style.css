@@ -1285,3 +1285,23 @@ html[data-theme="dark"] .field-assignment-target { background:#263e4b; color:#d7
 .signing-address-summary { white-space:pre-line; overflow-wrap:anywhere; }
 
 .storage-startup-error { padding: 20px; margin: 16px; border: 1px solid #ba6847; background: #fff2e9; color: #612d1b; }
+
+/* ナビと表示切替は下段、タイトルと作者は上段に揃える。 */
+.app-header-top { margin-bottom:10px; gap:12px; }
+.app-header-bottom { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.app-header-bottom .toolbar { flex:1; min-width:0; }
+.app-header-bottom .theme-switch { flex-shrink:0; margin-left:0; }
+html[data-theme="dark"] .app-body .tool-button:not(.tool-button-primary) { background:#2b3d4b; color:#d9e7ef; }
+html[data-theme="dark"] .app-body .tool-button:not(.tool-button-primary):hover { background:#354e60; }
+html[data-theme="dark"] .zoom-control { background:#253745; color:#d9e7ef; }
+html[data-theme="dark"] .zoom-percent { color:#d9e7ef; }
+html[data-theme="dark"] .canvas-toolbar .tool-button:disabled { opacity:1; background:#23323e; color:#9bb0be; }
+@media(max-width:600px) {
+  .app-header-top { align-items:flex-start; }
+  .app-header-top .app-credit { margin-left:auto; max-width:50%; text-align:right; }
+  .app-header-bottom { align-items:flex-start; flex-wrap:wrap; gap:10px; }
+  .app-header-bottom .toolbar { flex-basis:100%; }
+  .app-header-bottom .theme-switch { margin-left:auto; }
+}
+
+html[data-theme="dark"] .app-body .tool-button.tool-button-danger { color:#ffb3a8; }

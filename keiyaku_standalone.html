@@ -1323,21 +1323,38 @@ html[data-theme="dark"] .field-assignment-target { background:#263e4b; color:#d7
 
 .storage-startup-error { padding: 20px; margin: 16px; border: 1px solid #ba6847; background: #fff2e9; color: #612d1b; }
 
+/* ナビと表示切替は下段、タイトルと作者は上段に揃える。 */
+.app-header-top { margin-bottom:10px; gap:12px; }
+.app-header-bottom { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.app-header-bottom .toolbar { flex:1; min-width:0; }
+.app-header-bottom .theme-switch { flex-shrink:0; margin-left:0; }
+html[data-theme="dark"] .app-body .tool-button:not(.tool-button-primary) { background:#2b3d4b; color:#d9e7ef; }
+html[data-theme="dark"] .app-body .tool-button:not(.tool-button-primary):hover { background:#354e60; }
+html[data-theme="dark"] .zoom-control { background:#253745; color:#d9e7ef; }
+html[data-theme="dark"] .zoom-percent { color:#d9e7ef; }
+html[data-theme="dark"] .canvas-toolbar .tool-button:disabled { opacity:1; background:#23323e; color:#9bb0be; }
+@media(max-width:600px) {
+  .app-header-top { align-items:flex-start; }
+  .app-header-top .app-credit { margin-left:auto; max-width:50%; text-align:right; }
+  .app-header-bottom { align-items:flex-start; flex-wrap:wrap; gap:10px; }
+  .app-header-bottom .toolbar { flex-basis:100%; }
+  .app-header-bottom .theme-switch { margin-left:auto; }
+}
+
+html[data-theme="dark"] .app-body .tool-button.tool-button-danger { color:#ffb3a8; }
+
 </style>
 </head>
 <body>
   <header class="app-header">
     <div class="app-header-top">
       <h1>電子契約アプリ</h1>
-      <div class="theme-switch" role="group" aria-label="表示モード">
-        <button type="button" data-theme-choice="light" aria-pressed="false">ライト</button>
-        <button type="button" data-theme-choice="dark" aria-pressed="false">ダーク</button>
-      </div>
       <a class="app-credit" href="https://x.com/kat_t0o" target="_blank" rel="noopener">
         <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M18.9 2H22l-7.6 8.7L23 22h-6.6l-5.2-6.8L5 22H1.9l8.1-9.3L1 2h6.7l4.7 6.2L18.9 2zM16.6 20h1.9L7.5 4H5.5L16.6 20z"/></svg>
         作成：ケアマネカトゥ（@kat_t0o）
       </a>
     </div>
+    <div class="app-header-bottom">
     <nav class="toolbar">
       <button id="btn-nav-home" class="tool-button" type="button">ホーム</button>
       <button id="btn-nav-new-template" class="tool-button" type="button">新しいテンプレートを作る</button>
@@ -1347,6 +1364,11 @@ html[data-theme="dark"] .field-assignment-target { background:#263e4b; color:#d7
       <button id="btn-nav-draft-save" class="tool-button hidden" type="button">途中保存（暗号化）</button>
       <button id="btn-nav-last-export" class="tool-button hidden" type="button">直前の署名書類</button>
     </nav>
+      <div class="theme-switch" role="group" aria-label="表示モード">
+        <button type="button" data-theme-choice="light" aria-pressed="false">ライト</button>
+        <button type="button" data-theme-choice="dark" aria-pressed="false">ダーク</button>
+      </div>
+    </div>
   </header>
 
   <main class="app-body">

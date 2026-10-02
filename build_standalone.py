@@ -65,9 +65,10 @@ def build_base_html():
     html = INDEX_HTML.read_text(encoding="utf-8")
 
     css_content = (BASE_DIR / "style.css").read_text(encoding="utf-8")
-    html = html.replace(
-        '<link rel="stylesheet" href="style.css" />',
-        f"<style>\n{css_content}\n</style>",
+    html = re.sub(
+        r'<link rel="stylesheet" href="style\.css(?:\?[^"<>]*)?" />',
+        lambda match: f"<style>\n{css_content}\n</style>",
+        html,
     )
 
     for js_file in JS_FILES + LIB_FILES:

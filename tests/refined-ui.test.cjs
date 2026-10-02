@@ -85,3 +85,10 @@ test('一筆だけ取り消して残りの署名・有効判定を保ち、最�
   assert.ok(result.before>0);assert.equal(result.first.valid,true);assert.ok(result.first.kept>0);assert.equal(result.first.removed,0);assert.equal(result.first.canUndo,true);
   assert.deepEqual(result.empty,{valid:false,canUndo:false,kept:0});assert.deepEqual(result.cleared,{valid:false,canUndo:false,alpha:0});
 }));
+test('ダークのページ送り・倍率表示を読めて、ヘッダーの上下が揃う',async()=>withPage(async page=>{
+ await page.getByRole('button',{name:'ダーク',exact:true}).click();await page.locator('#btn-nav-new-template').click();
+ const colors=await page.evaluate(()=>Object.fromEntries(['btn-prev-page','btn-next-page','zoom-level'].map(id=>{const e=document.getElementById(id),s=getComputedStyle(e);return [id,{color:s.color,background:s.backgroundColor}];})));
+ assert.equal(colors['btn-next-page'].color,'rgb(217, 231, 239)');assert.equal(colors['btn-next-page'].background,'rgb(43, 61, 75)');assert.equal(colors['zoom-level'].color,'rgb(217, 231, 239)');assert.equal(await page.locator('.zoom-control').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(37, 55, 69)');
+ for(const width of [1968,820,360]){await page.setViewportSize({width,height:900});const positions=await page.evaluate(()=>{const box=s=>{const r=document.querySelector(s).getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,right:r.right};};return {title:box('.app-header-top h1'),credit:box('.app-credit'),nav:box('.toolbar'),theme:box('.theme-switch'),width:innerWidth,scroll:document.documentElement.scrollWidth};});assert.ok(positions.theme.top>=positions.title.bottom);assert.ok(positions.credit.bottom<=positions.nav.top);assert.ok(positions.theme.right<=width);assert.ok(positions.credit.right<=width);assert.ok(positions.nav.right<=width);if(width>600)assert.ok(Math.abs(positions.nav.top-positions.theme.top)<12);}
+ await page.getByRole('button',{name:'ライト',exact:true}).click();assert.equal(await page.locator('#btn-next-page').evaluate(e=>getComputedStyle(e).color),'rgb(34, 49, 63)');
+}));
