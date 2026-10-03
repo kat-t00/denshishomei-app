@@ -92,9 +92,9 @@ test('家族が本人名を代筆した後、自分の欄にも署名し両者�
   assert.equal(await page.getByRole('button',{name:'別の方が署名'}).count(),0);
   await page.getByRole('button',{name:'先ほど代筆したご家族が続けて署名'}).click();
   await page.locator('.signing-field-highlight').click();
-  assert.equal(await page.getByLabel('お名前',{exact:true}).inputValue(),'娘 花子');
+  assert.equal(await page.getByLabel(/^(お名前|署名する方のお名前)$/,{exact:true}).inputValue(),'娘 花子');
   assert.equal(await page.getByLabel('ご本人との関係・立場（任意）',{exact:true}).inputValue(),'長女');
-  assert.equal(await page.getByLabel('お名前',{exact:true}).isEditable(),false);
+  assert.equal(await page.getByLabel(/^(お名前|署名する方のお名前)$/,{exact:true}).isEditable(),false);
   await page.getByLabel('記入者住所（PDF印字用・必須）').fill('娘の住所');
   await page.getByLabel('記入者の建物名・部屋番号（任意）').fill('家族マンション202号室');
   await writeSignature();

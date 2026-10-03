@@ -3573,6 +3573,8 @@ const SigningFlow = (() => {
 // 後半のグリフが空白になる既知バグの回避策なので、そのまま踏襲する)。
 const PdfWriter = (() => {
   let cachedFontBytes = null;
+  let measurementFont = null;
+  let measurementPromise = null;
 
   function loadFontBytes() {
     if (!cachedFontBytes) {
@@ -3621,8 +3623,21 @@ const PdfWriter = (() => {
       }));
       return;
     }
-    const labels = { name: '署名者氏名欄', address: '署名者住所欄', recipient_address: '利用者住所欄', date: '日付欄', relationship: '続柄欄', declaration_checkbox: '確認チェック欄' };
+    const labels = { recipient_name: '利用者氏名欄', name: '署名者氏名欄', address: '署名者住所欄', recipient_address: '利用者住所欄', date: '日付欄', relationship: '続柄欄', declaration_checkbox: '確認チェック欄' };
     throw new Error('「' + (field.label || labels[field.type] || field.type) + '」の文字が枠に収まりません。文字を省略せず出力するため、テンプレートの枠を広げてください。');
+  }
+
+  // 印字と同じdrawFieldTextで測定する。描画だけを省き、文字省略や別の近似計算はしない。
+  async function prepareTextLayout() {
+    if (!measurementPromise) measurementPromise = (async () => {
+      const document = await PDFLib.PDFDocument.create(); document.registerFontkit(fontkit);
+      measurementFont = await document.embedFont(loadFontBytes(), {subset:false});
+    })().catch(error => { measurementPromise=null; throw error; });
+    await measurementPromise;
+  }
+  function assertTextFieldsFit(items) {
+    if (!measurementFont) throw new Error('印字の確認を準備できていません。もう一度お試しください。');
+    items.forEach(item => drawFieldText({drawText() {}},measurementFont,item.field,item.text));
   }
 
   async function drawSignatureImage(pdfLibDoc, page, field, dataUrl) {
@@ -3821,7 +3836,7 @@ const PdfWriter = (() => {
     return pdfLibDoc.save();
   }
 
-  return { buildSignedPdf, buildEvidenceText };
+  return { formatDate, prepareTextLayout, assertTextFieldsFit, buildSignedPdf, buildEvidenceText };
 })();
 
 </script>
@@ -4745,14 +4760,21 @@ const VoidFlow = (() => {
         const note = document.createElement('p'); note.className = 'side-panel-hint';
         note.textContent = 'この画面は事業者側が事前確認します。アプリが契約能力や代理権を判定するものではありません。'; card.append(note);
       }
-      const nextBtn = bigButton('次へ進む', () => {
+      const nextBtn = bigButton('次へ進む', async () => {
         const plan = { recipientAddress: recipientAddressInput ? recipientAddressInput.value.trim() : '', recipientBuilding: recipientBuildingInput ? recipientBuildingInput.value.trim() : '', primaryRole: roleSelect.value,
           primaryCapacity: mode !== 'legacy' && roleSelect.value === 'family' ? q('signing-family-capacity').value : undefined,
           includeAdditional: mode === 'all' || (mode === 'optional' && currentSigningTemplate.requireAdditionalForScribe &&
             roleSelect.value === 'family' && q('signing-family-capacity').value === 'scribe') ? true
             : mode === 'optional' && !additionalSelect.value ? undefined : additionalSelect.value === 'yes' };
-        try { SigningFlow.startSession(currentSigningTemplate, input.value.trim(), signingUiState.resignOf, plan); }
-        catch(e) { alert(e.message); return; }
+        nextBtn.disabled=true;
+        try {
+          await PdfWriter.prepareTextLayout();
+          const fields=currentSigningTemplate.pages.flatMap(page=>page.fields);
+          PdfWriter.assertTextFieldsFit(fields.filter(field=>['recipient_name','recipient_address'].includes(field.type)).map(field=>({field,text:field.type==='recipient_name'?input.value.trim():Models.fullAddress(plan.recipientAddress,plan.recipientBuilding)})));
+          SigningFlow.startSession(currentSigningTemplate, input.value.trim(), signingUiState.resignOf, plan);
+        }
+        catch(e) { alert('署名前に印字を確認してください。入力は保持しています。\n'+e.message); return; }
+        finally { nextBtn.disabled=false; }
         if (SigningFlow.isQueueComplete()) {
           signingUiState.phase = 'review';
         } else {
@@ -5288,7 +5310,8 @@ const VoidFlow = (() => {
 
   // 文書上のハイライトされた署名欄をタップした時に開くモーダル。
   // 名前・住所・続柄・代理権限チェック・事業所が配置した確認チェック欄・署名パッドをまとめてここで完結させる。
-  function openSignatureModal() {
+  async function openSignatureModal() {
+    try { await PdfWriter.prepareTextLayout(); } catch(error) { alert('印字の確認を準備できませんでした。署名は始めていません。 '+error.message); return; }
     const field = SigningFlow.getCurrentField();
 
     const backdrop = document.createElement('div');
@@ -5374,6 +5397,7 @@ const VoidFlow = (() => {
       (!!currentSigningTemplate.requireAdditionalForScribe && !!SigningFlow.getReusableScribeDetails());
     nameLabel.appendChild(nameInput);
     box.appendChild(nameLabel);
+    const nameHint=document.createElement('p'); nameHint.className='side-panel-hint'; nameHint.id='scribe-name-hint'; box.append(nameHint);
 
     const addressLabel = document.createElement('label');
     addressLabel.className = 'signing-field-label';
@@ -5460,6 +5484,10 @@ const VoidFlow = (() => {
 
     function rebuildDynamicSections() {
       const role = currentRole();
+      nameLabelText.textContent=role==='family'?'実際に記入するご家族のお名前':role==='additional'?'署名する方のお名前':'お名前';
+      nameInput.placeholder=role==='family'?'例：代筆・代理署名するご家族のお名前':role==='additional'?'例：山田 花子':'例：山田 太郎';
+      nameHint.textContent=role==='family'&&selectedCapacity==='scribe'?'入力欄：実際に代筆するご家族の氏名 ／ 手書き欄：利用者本人「'+recipientName+'」の氏名':'';
+      nameHint.style.display=nameHint.textContent?'':'none';
       title.textContent = role === 'family' && selectedCapacity === 'scribe' ? 'ご本人のお名前を代筆してください' : role === 'family' ? '代理人ご自身のお名前を署名してください' : role === 'recipient' ? 'ご本人のお名前を署名してください' : 'ご自身のお名前を署名してください';
       const addressFields = findTemplateFieldsForRole(role, ['address'], field.id);
       const relationshipFields = findTemplateFieldsForRole(role, ['relationship'], field.id);
@@ -5562,6 +5590,8 @@ const VoidFlow = (() => {
       modalPadInstance.clear();
     });
 
+    let fieldFitError='';
+    let checkedLayoutKey=null;
     // 署名・代理権限チェック・確認チェック欄が全て揃うまで確定ボタンを押せないようにする
     function updateConfirmEnabled() {
       const role = currentRole();
@@ -5578,6 +5608,16 @@ const VoidFlow = (() => {
         if (!authorityBasisInput.value.trim()) missing.push('代理権の根拠（例：成年後見人・委任状など）');
       }
       declarationCheckboxes.filter(d => d.field.required && !d.checkbox.checked).forEach(d => missing.push(d.field.label || '書式の確認事項'));
+      // Pencilの移動ごとに呼ばれるため、文字計測は入力・確認項目・日付が変わった時だけ行う。
+      const layoutKey=JSON.stringify([role,nameInput.value,addressInput.value,buildingInput.value,relInput.value,declarationCheckboxes.filter(d=>d.checkbox.checked).map(d=>d.field.id),new Date().toDateString()]);
+      if (layoutKey !== checkedLayoutKey) {
+        checkedLayoutKey=layoutKey; fieldFitError='';
+        try {
+          const textFields=findTemplateFieldsForRole(role,['name','address','relationship','date','declaration_checkbox'],field.id);
+          PdfWriter.assertTextFieldsFit(textFields.map(item=>({field:item,text:item.type==='name'?nameInput.value.trim():item.type==='address'?Models.fullAddress(addressInput.value.trim(),buildingInput.value.trim()):item.type==='relationship'?relInput.value.trim():item.type==='date'?PdfWriter.formatDate(new Date(),item.dateFormat):declarationCheckboxes.some(d=>d.field.id===item.id&&d.checkbox.checked)?item.checkPrintStyle==='check'?'✓':'✓ 確認済み':''})));
+        } catch(error) { fieldFitError=error.message; }
+      }
+      if (fieldFitError) missing.push('印字の収まり：'+fieldFitError);
       missingReasons.textContent = missing.length ? '確定するために必要な項目：' + missing.join(' ／ ') : '入力と確認が揃いました。署名全体を確認して確定してください。';
       missingReasons.classList.toggle('is-ready', !missing.length);
       confirmBtn.disabled = missing.length > 0;
@@ -5588,6 +5628,8 @@ const VoidFlow = (() => {
     const confirmBtn = bigButton('この内容で確定する', () => {
       const role = currentRole();
       const isFamilyNow = role === 'family';
+      if (isFamilyNow && selectedCapacity==='scribe' && nameInput.value.trim()===recipientName.trim() &&
+          !confirm('入力したご家族の氏名が利用者本人の氏名と同じです。ここは実際に代筆するご家族のお名前です。\n同姓同名で、ご家族の氏名として正しいことを確認しましたか？')) { nameInput.focus(); return; }
       const typedName = nameInput.value.trim();
       const address = addressLabel.style.display === 'none' ? '' : addressInput.value.trim();
       const building = addressLabel.style.display === 'none' ? '' : buildingInput.value.trim();
@@ -5637,6 +5679,10 @@ const VoidFlow = (() => {
     // (DOMに追加してからでないとclientWidthが0になるため、appendの後で行う)
     canvas.width = canvas.clientWidth;
     canvas.height = canvas.clientHeight;
+    canvas.addEventListener('pointerdown', event=>{
+      if (!fieldFitError) return;
+      event.preventDefault(); event.stopImmediatePropagation(); penStatus.textContent='署名前に印字の収まりを確認してください。 '+fieldFitError;
+    }, {capture:true});
     const modalPadInstance = SignaturePad.create(canvas, updateConfirmEnabled, () => {
       penStatus.textContent = '端末がペン入力を中断しました。書いた線は残っています。ペンを一度離してから続け、署名全体をご確認ください。';
     });
@@ -5748,11 +5794,13 @@ const VoidFlow = (() => {
     ], note:'「本人名を家族が代筆する場合は、続けて家族本人の署名も必須にする」を使う場合は、署名欄を二つ配置します。以前のテンプレートは設定が維持されるため、編集画面で署名方法を確認してください。'},
     {title:'5. 本人自署・家族の代筆・代理署名', intro:'ホームで書式の「これで署名する」を押します。「署名前の確認（事業者用）」で、利用者本人の氏名と、今回記入する方を確認します。利用者住所欄がある書式では、本人の住所も入力します。', steps:[
       '本人が自署する場合：本人を選び、端末を渡します。書面を確認し、強調された署名欄を押して、本人がご自身の名前を書きます。署名枠の上の「1画戻す」で最後の一筆を取り消し、「全消去」でこの欄の筆跡をすべて消せます。',
+      '氏名・住所・日付などの枠への収まりを署名前に確認します。収まらない場合は案内に沿って入力を確認するか、署名前に書式の枠を調整してください。署名画面では入力変更時に再確認し、文字を黙って省略しません。',
       '本人の意思に基づく家族の代筆：家族と代筆を選びます。入力欄には実際に代筆する家族の名前、手書き欄には本人の名前を記入します。本人の意思に基づく記入であることを確認します。',
       '代筆・代理署名では、記入する方の「ご本人との関係・立場」も入力できます。PDFに続柄欄がなくても記録し、同じ方が次の欄にも署名する場合に引き継ぎます。代理権の根拠とは別の情報です。',
       '代理人として署名する場合：家族と代理署名を選びます。入力欄・手書き欄には代理人自身の名前を記入し、代理権の確認と、その根拠を記録します。根拠欄には、確認した委任状や成年後見人としての立場などを具体的に書きます。',
       '住所は「住所」と任意の「建物名・部屋番号」に分けて入力します。PDFでは同じ住所枠にまとめて印字されます。本人と同じ住所の場合は、表示されるコピー操作を使えます。',
       '「この内容で確定する」が押せないときは、その直前の「確定するために必要な項目」を確認します。氏名・署名・必須の住所・確認事項・代理権の根拠など、不足項目が表示されます。',
+      '代筆するご家族の入力氏名が利用者本人名と同じ場合は確認を表示します。家族の氏名として誤入力なら戻って直し、同姓同名で正しい場合は確認して進めます。確認をキャンセルしても手書きは保持します。',
       '同じ家族が次の家族欄にも署名するときは「先ほど代筆したご家族が続けて署名」などを選びます。入力済みの氏名・住所を引き継ぎ、家族自身の名前で新しく署名・確認します。'
     ], note:'アプリは本人の契約能力や代理権の有無を判断しません。誰の意思に基づき、誰がどの立場で記入するかを事業者が確認してください。署名を訂正する場合は、その人以降の署名を取り直します。'},
     {title:'6. 完成書面を確認し、ファイルを保存する', steps:[

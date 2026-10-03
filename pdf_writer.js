@@ -3,6 +3,8 @@
 // 後半のグリフが空白になる既知バグの回避策なので、そのまま踏襲する)。
 const PdfWriter = (() => {
   let cachedFontBytes = null;
+  let measurementFont = null;
+  let measurementPromise = null;
 
   function loadFontBytes() {
     if (!cachedFontBytes) {
@@ -51,8 +53,21 @@ const PdfWriter = (() => {
       }));
       return;
     }
-    const labels = { name: '署名者氏名欄', address: '署名者住所欄', recipient_address: '利用者住所欄', date: '日付欄', relationship: '続柄欄', declaration_checkbox: '確認チェック欄' };
+    const labels = { recipient_name: '利用者氏名欄', name: '署名者氏名欄', address: '署名者住所欄', recipient_address: '利用者住所欄', date: '日付欄', relationship: '続柄欄', declaration_checkbox: '確認チェック欄' };
     throw new Error('「' + (field.label || labels[field.type] || field.type) + '」の文字が枠に収まりません。文字を省略せず出力するため、テンプレートの枠を広げてください。');
+  }
+
+  // 印字と同じdrawFieldTextで測定する。描画だけを省き、文字省略や別の近似計算はしない。
+  async function prepareTextLayout() {
+    if (!measurementPromise) measurementPromise = (async () => {
+      const document = await PDFLib.PDFDocument.create(); document.registerFontkit(fontkit);
+      measurementFont = await document.embedFont(loadFontBytes(), {subset:false});
+    })().catch(error => { measurementPromise=null; throw error; });
+    await measurementPromise;
+  }
+  function assertTextFieldsFit(items) {
+    if (!measurementFont) throw new Error('印字の確認を準備できていません。もう一度お試しください。');
+    items.forEach(item => drawFieldText({drawText() {}},measurementFont,item.field,item.text));
   }
 
   async function drawSignatureImage(pdfLibDoc, page, field, dataUrl) {
@@ -251,5 +266,5 @@ const PdfWriter = (() => {
     return pdfLibDoc.save();
   }
 
-  return { buildSignedPdf, buildEvidenceText };
+  return { formatDate, prepareTextLayout, assertTextFieldsFit, buildSignedPdf, buildEvidenceText };
 })();
